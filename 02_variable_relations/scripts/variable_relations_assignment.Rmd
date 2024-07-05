@@ -1,0 +1,736 @@
+---
+title: "Assignment: Variable Relations"
+author: "Jon Doretti"
+date: "`r lubridate::now(tzone = 'America/Chicago')`"
+output:
+  html_document:
+    toc: TRUE
+    toc_depth: 2
+    toc_float: TRUE
+    theme: yeti
+    highlight: zenburn
+    df_print: paged
+    code_folding: show
+editor_options:
+  chunk_output_type: console
+---
+
+# Instructions
+
+This assignment reviews the *Variable Relations* content. 
+You will use the **variable_relations.Rmd** file I reviewed as part of the lectures for this week to complete this assignment. 
+You will *copy and paste* relevant code from that file and update it to answer the questions in this assignment. 
+You will respond to questions in each section after executing relevant code to answer a question. 
+You will submit this assignment to its *Submissions* folder on *D2L*.
+You will submit *two* files:
+
+1. this completed *R Markdown* script, and 
+2. an *HTML* rendered version of it to *D2L*.
+
+To start:
+
+First, create a folder on your computer to save all relevant files for this course. 
+If you did not do so already, you will want to create a folder named **mgt_585** that contains all of the materials for this course.
+
+Second, inside of **mgt_585**, you will create a folder to host assignments.
+You can name that folder **assignments**.
+Inside the **assignments** folder, you can create a folder for topic assignments named: **topics**.
+
+Third, inside of the **topics** folder, you will create folders for each assignment.
+You can name the folder for this assignment: **02_variable_relations**.
+
+Fourth, create two additional folders in **02_variable_relations** named **scripts**, **data**, and **plots**.
+Store this script in the **scripts** folder and the data for this assignment in the **data** folder.
+
+Fifth, go to the *File* menu in *RStudio*, select *New Project...*, choose *Existing Directory*, go to your */mgt_585/assignments/topics/02_variable_relations* folder to select it as the top-level directory for this *R Project*.  
+
+# Global Settings
+
+The first code chunk sets the global settings for the remaining code chunks in the document.
+Do *not* change anything in this code chunk.
+
+```{r, setup, include = FALSE}
+## specify echo setting for all code chunks
+knitr::opts_chunk$set(
+  # show code
+  echo = TRUE,
+  # show messages
+  message = FALSE,
+  # show warnings
+  warning = FALSE
+)
+```
+
+# Activate Packages
+
+In this code chunk, we load the following packages:
+
+1. [here](https://here.r-lib.org);
+2. [tidyverse](https://www.tidyverse.org);
+3. [lubridate](https://lubridate.tidyverse.org/index.html);
+4. [skimr](https://docs.ropensci.org/skimr/);
+5. [scales](https://scales.r-lib.org).
+6. [snakecase](https://tazinho.github.io/snakecase/);
+7. [janitor](https://sfirke.github.io/janitor/);
+8. [infer](https://infer.netlify.app/index.html);
+9. [corrr](https://corrr.tidymodels.org);
+10. [rstatix](https://rpkgs.datanovia.com/rstatix/);
+11. [effectsize](https://easystats.github.io/effectsize/).
+
+Make sure you installed these packages when you reviewed the analytical lecture.
+
+We will use functions from these packages to examine the data. 
+Do *not* change anything in this code chunk.
+
+```{r, packages}
+## here for project workflow
+library(here)
+
+## tidyverse for data manipulation and plotting;
+## loads eight different libraries simultaneously
+library(tidyverse)
+
+## lubridate to work with dates
+library(lubridate)
+
+## skimr to summarize data
+library(skimr)
+
+## scales for variable scales
+library(scales)
+
+## snakecase for naming conventions
+library(snakecase)
+
+## janitor to clean data and chi-square test
+library(janitor)
+
+## infer for inferential frequentist statistics
+library(infer)
+
+## corrr for correlations
+library(corrr)
+
+## rstatix to compute statistical tests
+## and effect sizes
+library(rstatix)
+
+## effectsize to compute effect sizes
+library(effectsize)
+```
+
+# Task 1: Import Data
+
+We will use the same data as in the analytical lecture: **auto_insurance.rds**.
+After you load the data, then you will execute other commands on the data.
+
+## Task 1.1
+
+Use the **readRDS()** and **here()** functions to load the data file for this working session. 
+Save the data as the object **auto_raw**. 
+
+Examine **auto_raw** with **glimpse()**.
+
+**Question 1.1**: Answer these questions:
+(1) How many *observations* are there in the *raw* data?
+(2) How many *variables* are there in the *raw* data?
+
+**Response 1.1**: 
+(1) 9134
+(2) 24
+
+```{r, task_1_1}
+# Task 1.1: Import Data
+# Use readRDS() and here() functions to load the data file
+auto_raw <- readRDS(here("data", "auto_insurance.rds"))
+
+# Examine auto_raw with glimpse()
+glimpse(auto_raw)
+```
+
+# Task 2: Clean Data
+
+In this task, you will clean the data.
+
+## Task 2.1
+
+In one chained command, perform the following operations:
+
+1. change variable names to snake case using **rename_with()** and **to_snake_case()**;
+2. filter the **state** column for **"California"**;
+3. convert **c(state, response:education, employment_status:gender, location_code:marital_status, policy_type:sales_channel, vehicle_class:vehicle_size)** to factor variables; 
+4. update **effective_to_date** to a date variable with **mdy()**;
+5. compute **employed_binary** from **employment_status** using **fct_collapse()** to convert **c("Disabled", "Unemployed", "Medical Leave", "Retired")** to an **Other** category;
+6. relabel the levels of **gender** to **"Male"** and **"Female"**;
+7. reorder the levels of **marital_status** to **"Single", "Married", "Divorced"**;
+8. reorder the levels of **education** to move **"High School or Below"** and **"College"** to the *first* and *second* position, respectively;
+9. reorder the levels of **coverage** to move **"Extended"** to the *second* position.
+
+Examine **auto_work** with **glimpse()**.
+
+**Question 2.1**: Answer these questions:
+(1) How many *observations* are there in the *working* data?
+(2) How many *factor* variables are there in the *working* data?
+
+**Response 2.1**: 
+(1) 3150
+(2) 15
+
+```{r, task_2_1}
+# Assuming auto_raw is the loaded dataset from Task 1.1
+
+auto_work <- auto_raw %>%
+  rename_with(.fn =  to_snake_case) %>%
+  filter(state == "California") %>%
+  mutate(across(.cols = c(state, response:education, employment_status:gender, location_code:marital_status, policy_type:sales_channel, vehicle_class:vehicle_size), .fns = as_factor),
+  effective_to_date = mdy(effective_to_date),
+  employed_binary = fct_collapse(employment_status, Other = c("Disabled", "Unemployed", "Medical Leave", "Retired")),
+  gender = fct_recode(gender, "Male" = "M", "Female" = "F"),
+  marital_status = fct_relevel(marital_status, "Single", "Married", "Divorced"),
+  education = fct_relevel(education, "High School or Below", "College"),
+  coverage = fct_relevel(coverage, "Basic", "Extended", "Premium"))
+
+# Examine auto_work with glimpse()
+glimpse(auto_work)
+```
+
+# Task 3: Chi-Square Test of Independence
+
+For this task, you will perform a *chi-square test of independence*.
+
+## Task 3.1
+
+Perform two tasks.
+
+First, create a contingency table counting the combinations of **education** and **coverage** from **auto_work** using **tabyl()**.
+Bind the name **contingent_table** to the object.
+Print **contingent_table** to view the result.
+
+Second, compute a *chi-square test of independence* using **rstatix::chisq_test()**.
+Call **contingent_table** and convert the **"education"** column to *row names* with **column_to_rownames()**.
+Bind the name **chisq_indep_test** to the object.
+Print **chisq_indep_test** to view the result.
+
+**Question 3.1**: Answer these questions:
+(1) Irrespective of *educational degree*, what coverage to customers buy the most often?
+(2) What is the *empirical chi-square* value?
+
+**Response 3.1**: 
+(1) Basic
+(2) 12.1
+
+```{r, task_3_1}
+### create a table for two factors
+## save as tibble
+contingent_table <- tabyl(
+  ## data
+  auto_work,
+  ## factor variables
+  education, coverage
+)
+
+## print
+contingent_table
+
+chisq_indep_test <- rstatix::chisq_test(
+  ## data
+  contingent_table %>%
+    ## make column row names
+    column_to_rownames(
+      # row names
+      var = "education"
+    )
+)
+
+
+## print result
+chisq_indep_test
+
+```
+
+## Task 3.2
+
+Perform two tasks.
+
+First, calculate the *observed chi-square statistic* using the **infer** functions and bind the name, **chisq_indep_stat**, to it.
+Call **auto_work** and pipe it to **specify()** and set the *formula* input to **marital_status ~ vehicle_class**.
+Pipe the result to **hypothesize()** and set **null** to **"independence"**.
+Pipe the result to **calculate()** and set **stat** to **"Chisq"**.
+Print **chisq_indep_stat** to view the result.
+
+Second, produce a visualization using the **infer** functions.
+Call **auto_work** and pipe it to **specify()** and set the *formula* input to **marital_status ~ vehicle_class**.
+Pipe the result to **assume()** and set **distribution** to **"Chisq"**.
+Pipe the result to **visualize()**.
+Pipe the result to **shade_p_value()** and set **chisq_indep_stat** as the observed result and **direction** to **"greater"**.
+Pipe the result to **labs()** and set approporiate axes labels.
+
+**Question 3.2**: Are there shaded *theoretical* chi-square values to the right of the *observed* chi-square values?
+
+**Response 3.2**: Yes
+
+```{r, tast_3_2}
+# Calculate the observed chi-square statistic
+chisq_indep_stat <- auto_work %>%
+  specify(formula = marital_status ~ vehicle_class) %>%
+  hypothesize(null = "independence") %>%
+  calculate(stat = "Chisq")
+
+# Print the result
+chisq_indep_stat
+
+# Produce a visualization
+auto_work %>%
+  specify(formula = marital_status ~ vehicle_class) %>%
+  assume(distribution = "Chisq") %>%
+  visualize() +
+  shade_p_value(
+    chisq_indep_stat,
+    direction = "greater"
+  ) +
+  labs(
+    x = "Vehicle Class",
+    y = "Marital Status"
+  )
+```
+
+## Task 3.3
+
+Perform three tasks.
+
+First, calculate the effect size in this case using **cramers_v()**.
+Call **contingent_table** and convert the **"education"** column to *row names* with **column_to_rownames()**.
+Set the **ajust** input to **FALSE**.
+Pipe the result to **as_tibble()**.
+
+Second, bind the name, **obs_exp_freq**, to the following object.
+Call **chisq_descriptives()** with **chisq_indep_test** as the input.
+Pipe the result to **rename()** and rename **Var1** to **education** and **Var2** to **coverage**.
+Pipe the result to **select()** and select **coverage, education, observed, expected**.
+Pipe the result to **pivot_longer()** and set **cols** to **c(observed, expected)**, **names_to** to **"count_type"**, and **values_to** to **"count"**.
+Pipe the result to **mutate()**: first apply **str_to_title** and second apply **as_factor()** to **count_type** to update the column.
+Pipe the result to **group_by()** to form groups as a function of **education** and **count_type**.
+Pipe the result to **mutate()** to compute **coverage_prop** as a function of **count / sum(count)**.
+Pipe the result to **ungroup()**.
+Print **obs_exp_freq** to view the result.
+
+Third, bind the name, **obs_exp_freq_plot**, to the following object.
+Call **ggplot()** and set **obs_exp_freq** as the *data* input and map **coverage_prop**, **education**, and **fct_rev(coverage)** to the **x**, **y**, and **fill** aesthetics, respectively.
+Add a **facet_grid()** layer and set **cols** to **vars(count_type)**.
+Add a **geom_col()** layer.
+Add a **geom_text()** layer and set **label** to *percentage* **coverage_prop** with *one decimal place*, **position** to **position_fill()** with **vjust = 0.5**, **size** to **3**, **fontface** to **bold**, and **color** to **black** (not **white** like the lecture script).
+Update the *fill* aesthetic with **scale_fill_brewer()** to set **palette** to **"Set1"**.
+Update the *legend* with **guides()** to set **fill** to *reverse* the legend labels using **guide_legend()**.
+Update the *x-axis labels* with **scale_x_continuous()** and **percent_format()**.
+Use **labs()** to update the *x-axis* title to **"Frequency Percentage of Coverage"**, *y-axis* title to **"Education"**, and *fill* title to **"Coverage"**.
+Use **theme()** to move the *legend* to the *bottom*, change the *panel background* to **"whitesmoke"**, *remove* the *panel grid lines*, and change the *plot background* to **"mintcream"**.
+Print **obs_exp_freq_plot** to view the plot.
+
+**Question 3.3**: Answer these questions:
+(1) What is the estimate of *Cramer's V* in this case?
+(2) For the most part, do the *observed* and *expected* frequencies match closely?
+
+**Response 3.3**: 
+(1) 0.0439
+(2) Yes, the largest variance is Doctor and that is around 7-8%.
+
+```{r, task_3_3}
+
+effect_size <- contingent_table %>%
+  column_to_rownames(var = "education") %>%
+  cramers_v(adjust = FALSE) %>%
+  as_tibble()
+
+# Print the effect size
+print(effect_size)
+
+obs_exp_freq <- chisq_descriptives(
+  chisq_indep_test
+) %>%
+  rename(education = Var1, coverage = Var2) %>%
+  select(coverage, education, observed, expected) %>%
+  pivot_longer(cols = c(observed, expected), names_to = "count_type", values_to = "count") %>%
+  mutate(count_type = str_to_title(count_type), as_factor(count_type)) %>%
+  group_by(education, count_type) %>%
+  mutate(coverage_prop = count / sum(count)) %>%
+  ungroup()
+
+## print
+obs_exp_freq
+
+obs_exp_freq_plot <- ggplot(obs_exp_freq, aes(x = coverage_prop, y = education, fill = fct_rev(coverage))) +
+  ## facets
+  facet_grid(cols = vars(count_type)) +
+  geom_col() +
+  geom_text(aes(label = percent(coverage_prop, accuracy = 0.1)), 
+            position = position_fill(vjust = 0.5), size = 3, fontface = "bold", color = "black") +
+  scale_fill_brewer(palette = "Set1") +
+  guides(fill = guide_legend(reverse = TRUE)) +
+  scale_x_continuous(labels = percent_format()) +
+  labs(x = "Frequency Percentage of Coverage", y = "Education", fill = "Coverage") +
+  theme(legend.position = "bottom",
+        panel.background = element_rect(fill = "whitesmoke"),
+        panel.grid.major = element_blank(),
+        panel.grid.minor = element_blank(),
+        plot.background = element_rect(fill = "mintcream"))
+
+## show plot
+obs_exp_freq_plot
+  
+```
+
+# Task 4: Independent Samples t-test
+
+For this task, you will perform an *independent samples t-test*.
+
+## Task 4.1
+
+Perform two tasks.
+
+First, calculate the average *total claim amounts* by *gender*. 
+Call **auto_work** and *select* **gender** and **total_claim_amount**.
+Pipe the result to **group_by()** to form groups by **gender**.
+Pipe the result to **skim()**.
+Pipe the result to **yank()** to extract the *numeric* summary.
+
+Second, compute an *independent samples t-test* using **infer::t_test()**.
+Specify **auto_work** as the *data* input, **total_claim_amount ~ gender** as the *formula* input, **c("Male", "Female")** as the *order* input, and **0.95** as the *confidence interval* input.
+Bind the name **t_test_res** to the object.
+Print **t_test_res** to view the result.
+
+**Question 4.1**: Answer these questions:
+(1) What is the average total claim amount for *men*?
+(2) What is the *empirical t-value*?
+
+**Response 4.1**: 
+(1) 458
+(2) 3.76
+
+```{r, task_4_1}
+auto_work %>%
+  select(gender, total_claim_amount) %>%
+  group_by(gender) %>%
+  skim() %>%
+  yank("numeric")
+
+t_test_res <- infer::t_test(
+  auto_work, total_claim_amount ~ gender, order = c("Male", "Female"), conf_level = 0.95)
+
+t_test_res
+
+
+```
+
+## Task 4.2
+
+Perform two tasks.
+
+First, calculate the *observed mean difference* using the **infer** functions and bind the name, **mean_diff**, to it.
+Call **auto_work** and pipe it to **specify()** and set the *formula* input to **total_calim_amount ~ gender**.
+Pipe the result to **calculate()** and set **stat** to **"diff in means"** and **order** to **c("Male", "Female")**.
+Print **mean_diff** to view the result.
+
+Second, produce a visualization using the **infer** functions.
+Call **auto_work** and pipe it to **specify()** and set the *formula* input to **total_calim_amount ~ gender**.
+Pipe the result to **hypothesize()** and set **null** to **"independence"**.
+Pipe the result to **generate()** and set **reps** to **1000** and **type** to **"permute"**.
+Pipe the result to **calculate()** and set **stat** to **"diff in means"** and **order** to **c("Male", "Female")**.
+Pipe the result to **visualize()**.
+Pipe the result to **shade_p_value()** and set **mean_diff** as the observed result and **direction** to **"two-sided"**.
+Pipe the result to **labs()** and set appropriate axes labels.
+
+**Question 4.2**: Are there shaded *theoretical* mean differences to the *right* of the *observed* mean difference?
+
+**Response 4.2**: WRITE YOUR RESPONSE HERE
+
+```{r, task_4_2}
+
+```
+
+## Task 4.3
+
+Perform two tasks.
+
+First, calculate the effect size in this case using **cohens_d()**.
+Specify **total_claim_amount ~ gender** as the *formula* input and **auto_work** as the *data* input.
+Set the **pooled_sd** input to **FALSE**.
+Pipe the result to **as_tibble()**.
+
+Second, bind the name, **mean_diff_plot**, to the following object.
+Call **ggplot()** and set **auto_work** as the *data* input and map **gender** and **total_claim_amount** to the **x** and **y** aesthetics, respectively.
+Add a **geom_bar()** layer setting **fill** to **gender**, **stat** to **"summary"**, and **fun** to **"mean"**.
+Add a **geom_errorbar()** layer setting **stat** to **"summary"**, **fun.data** to **"mean_se"**, **fun.args** to **list(mult = 1.96)**, **size** to **1.5**, and **width** to **0.25**.
+Add a **geom_text()** layer and set **label** to **after_stat(y)** with *one decimal place*, **stat** to **"summary"**, and **fun** to **"mean"**, **vjust** to **3**, **size** to **6**, **fontface** to **bold**, and **color** to **white**.
+Use **labs()** to update the *x-axis* title to **NULL** and *y-axis* title to **"Average Total Claim Amount"**.
+Update the *fill* aesthetic with **scale_fill_brewer()** to set **palette** to **"Set1"**.
+Use **theme()** to *remove* the *legend*, change the *panel background* to **"whitesmoke"**, *remove* the *panel grid lines*, and change the *plot background* to **"mintcream"**.
+Print **mean_diff_plot** to view the plot.
+
+**Question 4.3**: Answer these questions:
+(1) What is the estimate of *Cohen's d* in this case?
+(2) Do *men* or *women* have higher *average total claim amounts*?
+
+**Response 4.3**: 
+(1) .134
+(2) Men at $457.6.
+
+```{r, task_4_3}
+cohens_d(
+  ## formula
+  total_claim_amount ~ gender,
+  ## data
+  data = auto_work,
+  ## pooled sd
+  pooled_sd = FALSE
+) %>% 
+  ## convert to tibble
+  as_tibble()
+
+
+mean_diff_plot <- ggplot(auto_work, aes(x = gender, y = total_claim_amount)) +
+  geom_bar(aes( fill = gender), stat = "summary", fun = "mean") +
+  geom_errorbar(
+    stat = "summary", fun.data = "mean_se", fun.args = list(mult = 1.96),
+    size = 1.5, width = 0.25
+  ) +
+  geom_text(
+    aes(label = number(after_stat(y), accuracy = 0.1)),
+    stat = "summary", fun = "mean", vjust = 3, size = 6, fontface = "bold", color = "white"
+  ) +
+  labs(x = NULL, y = "Average Total Claim Amount") +
+  scale_fill_brewer(palette = "Set1") +
+  theme(
+    legend.position = "none",
+    panel.background = element_rect(fill = "whitesmoke"),
+    plot.background = element_rect(fill = "mintcream"),
+    panel.grid = element_blank()
+  )
+
+mean_diff_plot
+
+```
+
+# Task 5: Pearson's Correlation Coefficient
+
+For this task, you will perform a *correlation test*.
+
+## Task 5.1
+
+Perform two tasks.
+
+First, calculate the correlation between **income** and **total_claim_amount**. 
+Call **auto_work** and *select* **income** and **total_claim_amount**.
+Pipe the result to **correlate()**.
+
+Second, compute a *correlation test* using **cor_test()**.
+Specify **auto_work** as the *data* input and **income** and **total_claim_amount** as the continuous variables.
+Bind the name **cor_test_res** to the object.
+Print **cor_test_res** to view the result.
+
+**Question 5.1**: Answer these questions:
+(1) What is the correlation value?
+(2) What is the *empirical t-value*?
+
+**Response 5.1**: 
+(1) -0.375
+(2) -22.735
+
+```{r, task_5_1}
+auto_work %>%
+  select(income, total_claim_amount) %>%
+  correlate()
+
+corr_test_res <- cor.test(
+  auto_work$income, auto_work$total_claim_amount)
+
+## print result
+corr_test_res
+
+```
+
+## Task 5.2
+
+Perform two tasks.
+
+First, calculate the *observed correlation* using the **infer** functions and bind the name, **corr_res**, to it.
+Call **auto_work** and pipe it to **specify()** and set the *formula* input to **total_claim_amount ~ income**.
+Pipe the result to **calculate()** and set **stat** to **"correlation"**.
+Print **corr_res** to view the result.
+
+Second, produce a visualization using the **infer** functions.
+Call **auto_work** and pipe it to **specify()** and set the *formula* input to **total_calim_amount ~ income**.
+Pipe the result to **hypothesize()** and set **null** to **"independence"**.
+Pipe the result to **generate()** and set **reps** to **1000** and **type** to **"permute"**.
+Pipe the result to **calculate()** and set **stat** to **"correlation"**.
+Pipe the result to **visualize()**.
+Pipe the result to **shade_p_value()** and set **corr_res** as the observed result and **direction** to **"two-sided"**.
+Pipe the result to **labs()** and set appropriate axes labels.
+
+**Question 5.2**: Are there shaded *theoretical* correlation values to the *left* of the *observed* correlation value?
+
+**Response 5.2**: No
+
+```{r, task_5_2}
+
+# Calculate observed correlation
+corr_res <- auto_work %>%
+  specify(total_claim_amount ~ income) %>%
+  calculate(stat = "correlation")
+
+
+# Visualization
+auto_work %>%
+  specify(total_claim_amount ~ income) %>%
+  hypothesize(null = "independence") %>%
+  generate(reps = 1000, type = "permute") %>%
+  calculate(stat = "correlation") %>%
+  visualize() +
+  shade_p_value(corr_res, direction = "two-sided") +
+  labs(
+    x = "Income",
+    y = "Total Claim Amount",
+    title = "Permutation Test for Correlation"
+  )
+
+
+```
+
+## Task 5.3
+
+Perform two tasks.
+
+First, calculate the effect size in this case by raising **corr_res** to **2**.
+
+Second, bind the name, **corr_plot**, to the following object.
+Call **ggplot()** and set **auto_work** as the *data* input and map **income** and **total_claim_amount** to the **x** and **y** aesthetics, respectively.
+Add a **geom_point()** layer and set **alpha** to **0.3**.
+Add a **geom_smooth()** layer and set **method** to **"lm"**, **formula** to **"y ~ x"**, and **se** to **FALSE**.
+Use **labs()** to update the *x-axis* title to **"Income"** and *y-axis* title to **"Total Claim Amount"**.
+Update the *x-axis labels* with **scale_x_continuous** and **dollar_format()** with **breaks** set to **seq(0, 100000, 25000)**.
+Update the *y-axis labels* with **scale_y_continuous** and **dollar_format()** with **breaks** set to **seq(0, 2500, 500)**.
+Use **theme()** to change the *panel background* to **"whitesmoke"** and the *plot background* to **"mintcream"**.
+Print **corr_plot** to view the plot.
+
+**Question 5.3**: Answer these questions:
+(1) What is the estimate of *r-squared* in this case?
+(2) Do *income* and *total claim amount* exhibit a *positive* or *negative* linear relationship?
+
+**Response 5.3**: 
+(1) 0.1410354
+(2) They exhibit a negative linear realtionship.
+
+```{r, task_5_3}
+# Print the result
+corr_res^2
+
+corr_plot <- ggplot(auto_work, aes(x = income, y = total_claim_amount)) +
+                      geom_point(alpha = 0.3) +
+                      geom_smooth(method = "lm", formula = "y ~ x", se = FALSE) +
+                      labs(
+                            x = "Income",
+                            y = "Total Claim Amount",
+                            title = "Relationship between Income and Total Claim Amount"
+                      ) +
+                      scale_x_continuous(
+                            labels = dollar_format(),
+                            breaks = seq(0, 100000, 25000)
+                      ) +
+                      scale_y_continuous(
+                            labels = dollar_format(),
+                            breaks = seq(0, 2500, 500)
+                      ) +
+                      theme(
+                            panel.background = element_rect(fill = "whitesmoke"),
+                            plot.background = element_rect(fill = "mintcream")
+                      )
+
+## show plot
+corr_plot
+
+```
+
+# Task 6: Save Objects
+
+For this task, you will save the objects you created.
+
+First, save the working data, **auto_work**, as the data file: **auto_work_california.rds** in the **data** folder of the project directory using **saveRDS()** and **here()**.
+
+Second, save the three plot objects as **png** files in the **plots** folder of the project directory using the combination of **walk()**, **ls()**, **ggsave()**, **here()**, **str_glue()**, **str_remove()**, and **get()**.
+Use a width of *8.1 inches* and a height of *5 inches*.
+
+```{r, task_6}
+### save working data
+## use write_tsv() to export as a csv data file
+saveRDS(
+  ## name of object
+  auto_work,
+  ## use here() to export data to project directory
+  here(
+    # folder
+    "data", 
+    # file
+    "auto_work_california.rds"
+  )
+)
+
+### save plots
+## call function
+walk(
+  ## vector of plots
+  ls(
+    # name pattern
+    pattern = "plot"
+  ),
+  ## function
+  function(plot_inp) {
+    ### save plot
+    ## call function
+    ggsave(
+      ## file path
+      here(
+        # folder
+        "plots",
+        # file
+        str_glue(
+          # remove string
+          str_remove(
+            # string
+            plot_inp,
+            # pattern
+            "_plot"
+          ),
+          # extension
+          ".png"
+        )
+      ),
+      ## plot object
+      plot = get(plot_inp),
+      ## units
+      units = "in",
+      ## width
+      width = 8.1,
+      ## height
+      height = 5
+    )
+  }
+)
+```
+
+# Task 7: Conceptual Questions
+
+For your last task, you will respond to conceptual questions based on the conceptual lectures for this week.
+
+**Question 7.1**: What does a chi-square test of independence evaluate?
+
+**Response 7.1**: 
+A chi-square test of independence evaluates whether there is a statistically significant association between two categorical variables in a contingency table. It tests the null hypothesis that the two variables are independent versus the alternative hypothesis that there is a relationship between them.
+
+**Question 7.2**: What does an independent samples t-test evaluate?
+
+**Response 7.2**: 
+An independent samples t-test evaluates whether the means of two independent groups are significantly different from each other. It tests the null hypothesis that the population means of the two groups are equal versus the alternative hypothesis that they are not equal.
+
+**Question 7.3**: What does a test using Pearson's correlation coefficient evaluate?
+
+**Response 7.3**:
+A test using Pearson's correlation coefficient evaluates the strength and direction of the linear relationship between two continuous variables. It measures the degree to which the two variables are linearly related, with values ranging from -1 (perfect negative correlation) to +1 (perfect positive correlation), and 0 indicating no linear correlation.

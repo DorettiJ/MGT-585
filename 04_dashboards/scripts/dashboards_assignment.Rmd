@@ -1,0 +1,213 @@
+---
+title: "Assignment: Flex Dashboards"
+author: "Jon Doretti"
+date: "`r lubridate::now(tzone = 'America/Chicago')`"
+output:
+  html_document:
+    toc: TRUE
+    toc_depth: 2
+    toc_float: TRUE
+    theme: yeti
+    highlight: zenburn
+    df_print: paged
+    code_folding: show
+editor_options:
+  chunk_output_type: console
+---
+
+# Instructions
+
+This assignment reviews the *Clustering Units* content. 
+You will use the *various dashboard scripts* I reviewed as part of the lectures for this week to complete this assignment. 
+You will *copy and paste* relevant code from that file and update it to answer the questions in this assignment. 
+You will respond to questions in each section after executing relevant code to answer a question. 
+You will submit this assignment to its *Submissions* folder on *D2L*.
+You will submit *two* files:
+
+1. this completed *R Markdown* script, and 
+2. an *HTML* rendered version of it to *D2L*.
+
+To start:
+
+First, create a folder on your computer to save all relevant files for this course. 
+If you did not do so already, you will want to create a folder named **mgt_585** that contains all of the materials for this course.
+
+Second, inside of **mgt_585**, you will create a folder to host assignments.
+You can name that folder **assignments**.
+Inside the **assignments** folder, you can create a folder for topic assignments named: **topics**.
+
+Third, inside of the **topics** folder, you will create folders for each assignment.
+You can name the folder for this assignment: **04_dashboards**.
+
+Fourth, create two additional folders in **04_dashboards** named **scripts**, **data**, and **plots**.
+Store this script in the **scripts** folder and the data for this assignment in the **data** folder.
+
+Fifth, go to the *File* menu in *RStudio*, select *New Project...*, choose *Existing Directory*, go to your */mgt_585/assignments/topics/04_dashboards* folder to select it as the top-level directory for this *R Project*.  
+
+# Flex Dashboard 1
+
+Open the **01_flexdash_assignment.Rmd** script.
+
+In the **global** code chunk, perform two tasks.
+
+First, import the **airline.json** file as an object named **airline** using **read_json()** and **here()** functions with the **simplifyVector** input inside **read_json()** set to **TRUE**.
+
+Second, update the **airline** data table by:
+
+1. converting the table to a *tibble* with **as_tibble()**;
+2. using **mutate()** and **across()** to convert character variables to factor variables;
+3. using **fct_relevel()** on the **Class** variable to place the **Business** category after the second level;
+4. changing variable names to snake case with **rename_with()** and **to_snake_case()**.
+
+In the **plot_1** code chunk, create a plot by:
+
+1. calling **ggplot()** with **airline** as the data input, **customer_type** set to the *x-axis*, **recommendation** set to the *y-axis*, and **class** set to **fill**,
+2. adding a **geom_violin()** layer, and
+3. labeling the axes and legend appropriately using *title case*: **"Customer Type"**, **"Recommendation"**, and **"Class"**.
+
+In the **plot_2** code chunk, create a plot by:
+
+1. calling **ggplot()** with **airline** as the data input, **age** set to the *x-axis* and **recommendation** set to the *y-axis*,
+2. adding a **geom_hex()** layer, and
+3. labeling the axes and legend appropriately using *title case*: **"Age"**, **"Recommendation"**, and **"Count"**.
+
+In the **plot_3** code chunk, create a plot by:
+
+1. calling **ggplot()** with **airline** as the data input, **leg_room** set to the *x-axis*, **cleanliness** set to the *y-axis*, and **recommendation** set to **fill**,
+2. adding a **geom_tile()** layer, 
+3. adding a **scale_fill_gradient2()** layer using **blue**, **white**, and **red** colors for **low**, **mid**, and **high** with the midpoint set to **50**, and
+4. labeling the axes and legend appropriately using *title case*: **"Leg Room"**, **"Cleanliness"**, and **"Recommendation"**.
+
+In the **plot_4** code chunk, create a plot by:
+
+1. calling **ggplot()** with **airline** as the data input, **flight_distance** set to the *x-axis* and **recommendation** set to the *y-axis*,
+2. adding a **geom_density_2d_filled()** layer with **contour_var** set to **ndensity**, 
+3. adding a **facet_grid()** layer with categories of **customer_type** in the rows and categories of **class** in the columns, and
+4. labeling the axes and legend appropriately using *title case*: **"Flight Distance"**, **"Recommendation"**, and **"Density"**.
+
+Knit the dashboard to **HTML** by selecting **Knit to flex_dashboard** from the **Knit** dropdown menu.
+
+You will submit both **01_flexdash_assignment.Rmd** and **01_flexdash_assignment.html**.
+
+# Flex Dashboard 2
+
+Open the **02_flexdash_assignment.Rmd** script.
+
+In the **table_1** code chunk, create a table named **tab_1** by:
+
+1. calling **airline**,
+2. calling **filter()** to filter for **age <= 30** and **gender == "Female"**;
+3. calling **datatable()** to create an interactive table and set **tab_1** as the *data* input, **rownames** to **FALSE**, **extensions** to **Scroller**, and **options** to a **list()** with **dom** set to **tlpS**, **scrollY** set to **200px**, and **pageLength** set to **25**.
+
+In the **table_2** code chunk, create a table named **tab_2** by:
+
+1. calling **airline**,
+2. calling **filter()** to filter for **age > 30** and **gender == "Female"**;
+3. calling **datatable()** to create an interactive table and set **tab_2** as the *data* input, **rownames** to **FALSE**, **extensions** to **Scroller**, and **options** to a **list()** with **dom** set to **tlpS**, **scrollY** set to **200px**, and **pageLength** set to **25**.
+
+Knit the dashboard to **HTML** by selecting **Knit to flex_dashboard** from the **Knit** dropdown menu.
+
+You will submit both **02_flexdash_assignment.Rmd** and **02_flexdash_assignment.html**.
+
+# Flex Dashboard 3
+
+Open the **03_flexdash_assignment.Rmd** script.
+
+In the **gauge_compute** code chunk at the top of the script underneath the **css** code chunk, create a new data table named **gauge_compute** by:
+
+1. piping **airline** to **group_by()** and grouping by **travel_type**,
+3. applying **summarize()** to compute a variable named **count** using **n()** and a variable named **mean_recommend** from **recommendation** using the **format()**, **round()**, and **mean()** functions appropriately, and finally, dropping groups.
+
+In the **box_1** code chunk, create a value box by:
+
+1. calling **valueBox()**;
+2. inside of **valueBox()**, call **gauge_compute** and filter it for **travel_type == "Personal Travel"** and pull **count** using **pull()**;
+3. set the **caption** to **"Number of Personal Travel Customers"**, and
+4. set the **icon** to **"fa-chart-bar"**.
+
+In the **gauge_1** code chunk, create a gauge by:
+
+1. calling **gauge()**,
+2. inside of **gauge()**, call **gauge_compute** and filter it for **travel_type == "Personal Travel"** and pull **mean_recommend** using **pull()**;
+3. set the **min** and **max** to **0** and **100**, respectively, and
+4. set the **sectors** using **gaugeSectors()** so that **success** equals **75-100**, **warning** equals **50-74**, and **danger** equals **0-49**.
+
+In the **box_2** code chunk, create a value box by:
+
+1. calling **valueBox()**;
+2. inside of **valueBox()**, call **gauge_compute** and filter it for **travel_type == "Business Travel"** and pull **count** using **pull()**;
+3. set the **caption** to **"Number of Business Travel Customers"**, and
+4. set the **icon** to **"fa-chart-bar"**.
+
+In the **gauge_2** code chunk, create a gauge by:
+
+1. calling **gauge()**,
+2. inside of **gauge()**, call **gauge_compute** and filter it for **travel_type == "Business Travel"** and pull **mean_recommend** using **pull()**;
+3. set the **min** and **max** to **0** and **100**, respectively, and
+4. set the **sectors** using **gaugeSectors()** so that **success** equals **75-100**, **warning** equals **50-74**, and **danger** equals **0-49**.
+
+Knit the dashboard to **HTML** by selecting **Knit to flex_dashboard** from the **Knit** dropdown menu.
+
+You will submit both **03_flexdash_assignment.Rmd** and **03_flexdash_assignment.html**.
+
+# Flex Dashboard 4
+
+Open the **04_flexdash_assignment.Rmd** script.
+
+In the **cluster_1** code chunk, first perform the following:
+
+1. create a new object named **cluster_1**;
+2. pipe **airline** to **filter()** and filter for **age <= 30** and **gender == "Female"**;
+3. pipe the result to **select()** and select for **recommendation** and **satisfaction.
+
+Second, perform the following:
+
+1. create a new object named **kmeans_cluster_1** that is the result of a *k-means cluster analysis*;
+2. call **kmeans()** and set the *data* input to **cluster_1**, **centers** to **3**; and **nstart** to **25**.
+
+Third, perform the following:
+
+1. update **cluster_1** by overwriting it;
+2. pipe **cluster_1** to **mutate()**;
+3. inside of **mutate()**, create a **cluster** column by plucking **"cluster"** with **pluck()** from **kmeans_cluster_1** and convert **cluster** to a *factor* variable.
+
+Fourth, perform the following:
+
+1. call **ggplot()**;
+2. add a *first* **geom_point()** layer with **cluster_1** as the *data* input; 
+3. in the same **geom_point()** layer map **satisfasction** to the *x-axis*, **recommendation** to the *y-axis*, and **color** to **cluster** and set the **size** to **2**;
+3. add a *second* **geom_point()** layer in which the *data* input consists of plucking **"centers"** with **pluck()** from **kmeans_cluster_1** and converting it to a tibble with **as_tibble()**;
+4. in the same **geom_point()** layer map **satisfasction** to the *x-axis* and **recommendation** to the *y-axis*, and **color** to **cluster** and set the **size**, **shape**, and **stroke** all to **4**;
+5. label the axes and legend appropriately using *title case* with **labs()**: **"Satisfaction"**, **"Recommendation"**, and **"Cluster"**;
+6. update the theme with **theme()** by moving the *legend* to the *bottom*.
+
+In the **cluster_2** code chunk, first perform the following:
+
+1. create a new object named **cluster_2**;
+2. pipe **airline** to **filter()** and filter for **age > 30** and **gender == "Female"**;
+3. pipe the result to **select()** and select for **recommendation** and **satisfaction**.
+
+Second, perform the following:
+
+1. create a new object named **kmeans_cluster_2** that is the result of a *k-means cluster analysis*;
+2. call **kmeans()** and set the *data* input to **cluster_2**, **centers** to **3**; and **nstart** to **25**.
+
+Third, perform the following:
+
+1. update **cluster_2** by overwriting it;
+2. pipe **cluster_2** to **mutate()**;
+3. inside of **mutate()**, create a **cluster** column by plucking **"cluster"** with **pluck()** from **kmeans_cluster_2** and convert **cluster** to a *factor* variable.
+
+Fourth, perform the following:
+
+1. call **ggplot()**;
+2. add a *first* **geom_point()** layer with **cluster_2** as the *data* input; 
+3. in the same **geom_point()** layer map **satisfasction** to the *x-axis*, **recommendation** to the *y-axis*, and **color** to **cluster** and set the **size** to **2**;
+3. add a *second* **geom_point()** layer in which the *data* input consists of plucking **"centers"** with **pluck()** from **kmeans_cluster_2** and converting it to a tibble with **as_tibble()**;
+4. in the same **geom_point()** layer map **satisfasction** to the *x-axis* and **recommendation** to the *y-axis*, and **color** to **cluster** and set the **size**, **shape**, and **stroke** all to **4**;
+5. label the axes and legend appropriately using *title case* with **labs()**: **"Satisfaction"**, **"Recommendation"**, and **"Cluster"**;
+6. update the theme with **theme()** by moving the *legend* to the *bottom*.
+
+Knit the dashboard to **HTML** by selecting **Knit to flex_dashboard** from the **Knit** dropdown menu.
+
+You will submit both **04_flexdash_assignment.Rmd** and **04_flexdash_assignment.html**.

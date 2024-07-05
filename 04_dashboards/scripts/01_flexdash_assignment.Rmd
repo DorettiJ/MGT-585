@@ -1,0 +1,110 @@
+---
+title: "Flex Dashboards for Sharing Results"
+output:
+  flexdashboard::flex_dashboard:
+    source_code: embed
+    orientation: columns
+    theme: cosmo
+editor_options: 
+  chunk_output_type: console
+---
+
+```{r, libraries, include = FALSE}
+## here to navigate project directory
+library(here)
+
+## tidyverse for data wrangling and visualization
+library(tidyverse)
+
+## snakecase for naming conventions
+library(snakecase)
+
+## flexdashboard to build dashboards in R Markdown
+library(flexdashboard)
+
+## shiny for reactive dashboards
+library(shiny)
+
+## jsonlite to import json data files
+library(jsonlite)
+
+## hexbin for hex plots
+library(hexbin)
+
+## DT for web-friendly, interactive tables
+library(DT)
+```
+
+```{r, global, include = FALSE}
+airline <- read_json(here("data","airline.json"), simplifyVector = TRUE)
+
+# Convert the table to a tibble
+airline <- as_tibble(airline)
+
+# Update the table as described
+airline <- airline %>%
+  mutate(across(.cols = where(is.character), .fns = as.factor),
+    Class = fct_relevel(Class, "Business", after = 2)) %>%
+  
+  rename_with(.fn = to_snake_case)
+
+
+print(airline)
+
+
+```
+
+Column
+-----------------------------------------------------------------------
+
+### Recommendation Violin Plot by Customer Type and Class
+
+```{r, plot_1}
+# Create the violin plot
+violin_plot <- ggplot(airline, aes(x = customer_type, y = recommendation, fill = class)) +
+  geom_violin() +
+  labs(x = "Customer Type", y = "Recommendation", fill = "Class")
+
+# Print the plot
+print(violin_plot)
+```
+
+### Count of Recommendation and Age 
+
+```{r, plot_2}
+hexbin_plot <- ggplot(airline, aes(x = age, y = recommendation)) +
+  geom_hex() +
+  labs(x = "Age", y = "Recommendation", fill = "Count")
+
+# Print the plot
+print(hexbin_plot)
+```
+
+Column 
+-----------------------------------------------------------------------
+
+### Recommendation Heat Map for Leg Room and Cleanliness
+
+```{r, plot_3}
+# Create the tile plot
+tile_plot <- ggplot(airline, aes(x = leg_room, y = cleanliness, fill = recommendation)) +
+  geom_tile() +
+  scale_fill_gradient2(low = "blue", mid = "white", high = "red", midpoint = 50) +
+  labs(x = "Leg Room", y = "Cleanliness", fill = "Recommendation")
+
+# Print the plot
+print(tile_plot)
+```
+
+### Recommendation and Flight Distance 2D Density by Customer Type and Class
+
+```{r, plot_4}
+# Create the 2D density plot
+density_plot <- ggplot(airline, aes(x = flight_distance, y = recommendation)) +
+  geom_density_2d_filled(contour_var = "ndensity") +
+  facet_grid(customer_type ~ class) +
+  labs(x = "Flight Distance", y = "Recommendation", fill = "Density")
+
+# Print the plot
+print(density_plot)
+```

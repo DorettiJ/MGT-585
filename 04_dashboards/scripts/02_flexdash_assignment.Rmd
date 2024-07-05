@@ -1,0 +1,283 @@
+---
+title: "Flex Dashboards for Sharing Results"
+output:
+  flexdashboard::flex_dashboard:
+    source_code: embed
+    orientation: columns
+    theme: cosmo
+editor_options: 
+  chunk_output_type: console
+---
+
+```{r, libraries, include = FALSE}
+## here to navigate project directory
+library(here)
+
+## tidyverse for data wrangling and visualization
+library(tidyverse)
+
+## snakecase for naming conventions
+library(snakecase)
+
+## flexdashboard to build dashboards in R Markdown
+library(flexdashboard)
+
+## shiny for reactive dashboards
+library(shiny)
+
+## jsonlite to import json data files
+library(jsonlite)
+
+## hexbin for hex plots
+library(hexbin)
+
+## DT for web-friendly, interactive tables
+library(DT)
+```
+
+```{r, global, include = FALSE}
+### import data objects
+## use read_json() to import the data file
+airline <- read_json(
+  ## use here() to locate file in our project directory
+  here(
+    # folder
+    "data", 
+    # file
+    "airline.json"
+  ),
+  ## turn into data table
+  simplifyVector = TRUE
+)
+
+### rename variables, convert variables
+## overwrite 
+airline <- airline %>%
+  ## convert to tibble
+  as_tibble() %>%
+  ## mutate variable types and values
+  mutate(
+    ## characters to factors
+    across(
+      # find character variables
+      .cols = where(is.character),
+      # convert to factors
+      .fns = as_factor
+    ),
+    ## relevel
+    Class = fct_relevel(
+      # factor
+      Class, 
+      # level
+      "Business", 
+      # position
+      after = 2
+    )
+  ) %>%
+  ## clean variable names
+  rename_with(
+    # function
+    .fn = to_snake_case
+  )
+```
+
+```{css, echo = FALSE}
+/* adjust height of data tables */
+.dataTables_scrollBody {
+  /* adjust height */
+  max-height: 100% !important;
+}
+```
+
+Plots 
+================
+
+Column {.tabset .tabset-fade}
+-----------------------------------------------------------------------
+
+### Violin Plot
+
+```{r, plot_1}
+### violin plot
+## call data and mapping
+ggplot(
+  # data
+  airline,
+  # mapping
+  aes(
+    # x-axis
+    x = customer_type, 
+    # y-axis
+    y = recommendation, 
+    # fill
+    fill = class
+  )
+) +
+  ## violin geometry
+  geom_violin() +
+  ## labels
+  labs(
+    # x-axis
+    x = "Customer Type", 
+    # y-axis
+    y = "Recommendation", 
+    # fill
+    fill = "Class"
+  )
+```
+
+### Hex Bin Plot 
+
+```{r, plot_2}
+### hex plot
+## call data and mapping
+ggplot(
+  # data
+  airline,
+  # mapping
+  aes(
+    # x-axis
+    x = age, 
+    # y-axis
+    y = recommendation
+  )
+) +
+  ## hex geometry
+  geom_hex() +
+  ## labels
+  labs(
+    # x-axis
+    x = "Age", 
+    # y-axis
+    y = "Recommendation", 
+    # fill
+    fill = "Count"
+  )
+```
+
+### Heat Map
+
+```{r, plot_3}
+### heat map
+## call data and mapping
+ggplot(
+  # data
+  airline,
+  # mapping
+  aes(
+    # x-axis
+    x = leg_room, 
+    # y-axis
+    y = cleanliness, 
+    # fill
+    fill = recommendation
+  )
+) +
+  ## tile geometry
+  geom_tile() +
+  ## adjust fill color
+  scale_fill_gradient2(
+    # low value color
+    low = "blue",
+    # mid value color
+    mid = "white",
+    # high value color
+    high = "red",
+    # midpoint
+    midpoint = 50
+  ) +
+  ## labels
+  labs(
+    # x-axis
+    x = "Leg Room", 
+    # y-axis
+    y = "Cleanliness", 
+    # fill
+    fill = "Recommendation"
+  )
+```
+
+### 2D Density Plot
+
+```{r, plot_4}
+### filled 2d density
+## call data and mapping
+ggplot(
+  # data
+  airline,
+  # mapping
+  aes(
+    # x-axis
+    x = flight_distance, 
+    # y-axis
+    y = recommendation
+  )
+) +
+  ## tile geometry
+  geom_density_2d_filled(
+    # contours
+    contour_var = "ndensity"
+  ) +
+  ## facet
+  facet_grid(
+    # rows by columns
+    customer_type ~ class
+  ) +
+  ## labels
+  labs(
+    # x-axis
+    x = "Flight Distance", 
+    # y-axis
+    y = "Recommendation", 
+    # fill
+    fill = "Density"
+  )
+```
+
+Table 1 {data-navmenu=Tables} 
+================
+
+Column
+-----------------------------------------------------------------------
+
+### Younger Female Customers
+
+```{r, table_1}
+# Create the filtered data table
+tab_1 <- airline %>%
+  filter(age <= 30, gender == "Female")
+
+# Create the interactive table
+datatable(tab_1, 
+          rownames = FALSE, 
+          extensions = 'Scroller', 
+          options = list(
+            dom = 'tlpS',
+            scrollY = '200px',
+            pageLength = 25
+          ))
+```
+
+Table 2 {data-navmenu=Tables} 
+================
+
+Column
+-----------------------------------------------------------------------
+
+### Older Female Customers
+
+```{r, table_2}
+# Create the filtered data table
+tab_2 <- airline %>%
+  filter(age > 30, gender == "Female")
+
+# Create the interactive table
+datatable(tab_2, 
+          rownames = FALSE, 
+          extensions = 'Scroller', 
+          options = list(
+            dom = 'tlpS',
+            scrollY = '200px',
+            pageLength = 25
+          ))
+```

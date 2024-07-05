@@ -1,0 +1,1054 @@
+---
+title: "Assignment: Clustering Units"
+author: "Jon Doretti"
+date: "`r lubridate::now(tzone = 'America/Chicago')`"
+output:
+  html_document:
+    toc: TRUE
+    toc_depth: 2
+    toc_float: TRUE
+    theme: yeti
+    highlight: zenburn
+    df_print: paged
+    code_folding: show
+editor_options:
+  chunk_output_type: console
+---
+
+# Instructions
+
+This assignment reviews the *Clustering Units* content. 
+You will use the **clustering_units.Rmd** file I reviewed as part of the lectures for this week to complete this assignment. 
+You will *copy and paste* relevant code from that file and update it to answer the questions in this assignment. 
+You will respond to questions in each section after executing relevant code to answer a question. 
+You will submit this assignment to its *Submissions* folder on *D2L*.
+You will submit *two* files:
+
+1. this completed *R Markdown* script, and 
+2. an *HTML* rendered version of it to *D2L*.
+
+To start:
+
+First, create a folder on your computer to save all relevant files for this course. 
+If you did not do so already, you will want to create a folder named **mgt_585** that contains all of the materials for this course.
+
+Second, inside of **mgt_585**, you will create a folder to host assignments.
+You can name that folder **assignments**.
+Inside the **assignments** folder, you can create a folder for topic assignments named: **topics**.
+
+Third, inside of the **topics** folder, you will create folders for each assignment.
+You can name the folder for this assignment: **03_clustering_units**.
+
+Fourth, create two additional folders in **03_clustering_units** named **scripts**, **data**, and **plots**.
+Store this script in the **scripts** folder and the data for this assignment in the **data** folder.
+
+Fifth, go to the *File* menu in *RStudio*, select *New Project...*, choose *Existing Directory*, go to your */mgt_585/assignments/topics/03_clustering_units* folder to select it as the top-level directory for this *R Project*.  
+
+# Global Settings
+
+The first code chunk sets the global settings for the remaining code chunks in the document.
+Do *not* change anything in this code chunk.
+
+```{r, setup, include = FALSE}
+## specify echo setting for all code chunks
+knitr::opts_chunk$set(
+  # show code
+  echo = TRUE,
+  # show messages
+  message = FALSE,
+  # show warnings
+  warning = FALSE,
+  # figure dimensions
+  fig.dim = c(10, 6.2)
+)
+```
+
+# Activate Packages
+
+In this code chunk, we load the following packages:
+
+1. [here](https://here.r-lib.org);
+2. [tidyverse](https://www.tidyverse.org);
+3. [skimr](https://docs.ropensci.org/skimr/);
+4. [scales](https://scales.r-lib.org).
+5. [snakecase](https://tazinho.github.io/snakecase/);
+6. [rstatix](https://rpkgs.datanovia.com/rstatix/);
+7. [cluster](https://cran.r-project.org/web/packages/cluster/cluster.pdf);
+8. [factoextra](https://rpkgs.datanovia.com/factoextra/index.html);
+9. [patchwork](https://patchwork.data-imaginist.com).
+
+Make sure you installed these packages when you reviewed the analytical lecture.
+
+We will use functions from these packages to examine the data. 
+Do *not* change anything in this code chunk.
+
+```{r, packages}
+## here for project workflow
+library(here)
+
+## tidyverse for data manipulation and plotting;
+## loads eight different libraries simultaneously
+library(tidyverse)
+
+## skimr to summarize data
+library(skimr)
+
+## scales for variable scales
+library(scales)
+
+## snakecase for naming conventions
+library(snakecase)
+
+## rstatix for matrices
+library(rstatix)
+
+## cluster for partitioning around medoids
+library(cluster)
+
+## factoextra for clustering helper functions
+library(factoextra)
+
+## patchwork for visualizations
+library(patchwork)
+```
+
+# Task 1: Import Data
+
+We will use the same data as in the analytical lecture: **credit_cards.csv**.
+After you load the data, then you will execute other commands on the data.
+
+## Task 1.1
+
+Use the **read_csv()** and **here()** functions to load the data file for this working session. 
+Save the data as the object **credit_cards_raw**. 
+
+Examine **credit_cards** with **glimpse()**.
+
+**Question 1.1**: Answer these questions:
+(1) How many *observations* are there in the *raw* data?
+(2) How many *variables* are there in the *raw* data?
+
+**Response 1.1**: 
+(1) 400
+(2) 12
+
+```{r, task_1_1}
+# Load the data
+credit_cards_raw <- read_csv(here("data", "credit_cards.csv"))
+
+# Examine the data
+glimpse(credit_cards_raw)
+```
+
+# Task 2: Clean Data
+
+In this task, you will clean the data.
+
+## Task 2.1
+
+First, set the *random seed* with **set.seed()** to **1967**.
+
+Second, in one chained command, create **credit_cards_work** from **credit_cards_raw** by performing the following operations:
+
+1. draw a random sample from **credit_cards_raw** with the **slice_sample()** function and setting the **prop** to **0.5**;
+2. change variable names to snake case using **rename_with()** and **to_snake_case()**;
+3. convert **c(gender:ethnicity)** to factor variables; 
+4. recode the levels of **ethnicity** to change **"African American"** to **"Black"** and **"Caucasian"** to **"White"**;
+5. update **income** so that the values are multiplied by **1000**.
+
+Examine **credit_cards_work** with **glimpse()**.
+
+Execute this code chunk using the *green* arrow to run the chunk.
+This ensures that the correct seed is set for sampling the rows of **credit_cards_raw**.
+
+**Question 2.1**: Answer these questions:
+(1) How many *observations* are there in the *working* data?
+(2) How many *factor* variables are there in the *working* data?
+
+**Response 2.1**: 
+(1) 200
+(2) 4
+
+```{r, task_2_1}
+set.seed(1967)
+
+# Create credit_cards_work
+credit_cards_work <- credit_cards_raw %>%
+  slice_sample(prop = 0.5) %>%
+  rename_with(.fn = to_snake_case) %>%
+  mutate(across(.cols = c(gender:ethnicity), .fns = as_factor),
+         ethnicity = fct_recode(ethnicity, "Black" = "African American", "White" = "Caucasian"),
+         income = income * 1000)
+
+# Examine credit_cards_work
+glimpse(credit_cards_work)
+```
+
+# Task 3: Unit Distances
+
+For this task, you will compute *distances between units*.
+
+## Task 3.1
+
+Perform two tasks.
+
+First, create a table named **cc_explore** from **credit_cards_work** by:
+
+1. filtering for **gender == "Female"** and **education >= 18**;
+2. selecting for **income:education**.
+
+Print **cc_explore** to view the result.
+
+Second, compute the unit distances with **get_dist()** and name the object **cc_explore_dist**.
+Set **cc_explore** as the *data* input, **"euclidean"** as the *method* input, and *standardize* the variables.
+
+Print **cc_explore_dist**.
+
+**Question 3.1**: Answer these questions:
+(1) What is the credit rating of the *first* individual in **cc_explore**?
+(2) What is the distance between the *fourth* and *fifth* unit?
+(3) What is the distance between the *third* and *ninth* unit?
+
+**Response 3.1**: 
+(1) 410
+(2) 3.242692
+(3) 3.234098
+
+```{r, task_3_1}
+# Create cc_explore
+cc_explore <- credit_cards_work %>%
+  filter(gender == "Female", education >= 18) %>%
+  select(income:education)
+
+cc_explore
+
+# Compute unit distances
+cc_explore_dist <- get_dist(
+  cc_explore, method = "euclidean", stand = TRUE)
+
+cc_explore_dist
+```
+
+## Task 3.2
+
+Perform two tasks.
+
+First, create an object named **cc_explore_dist_tib** from **cc_explore_dist**.
+Pipe **cc_explore_dist** to **round()** and round to *two* decimal places.
+Convert the result to a *matrix* with **as.matrix()**.
+Replace the *lower trinagle* with **NA** values.
+Convert the result to a *tibble* with **as_tibble()**.
+Rename **rowname** to **cust_1**.
+Pivot the table long where all columns except for **cust_1** are pivoted and set **names_to** input to **"cust_2"** and **values_to** input to **"dist"**.
+Filter for *non-missing* values of **dist**.
+Convert **cust_1** and **cust_2** to *factor* variables with the combination of **mutate()**, **across()**, and **as_factor()**.
+Print **cc_explore_dist_tib** to view the result.
+
+Second, create a plot named **dist_heat_plot**.
+Call **ggplot()** and set the *data* input to **cc_explore_dist_tib** while mapping **cust_2** to the *x-axis*, **cust_1** to the *y-axis*, and **dist** to **fill**.
+Add a **geom_tile()** layer with **color** set to **"white"**.
+Add a **geom_text()** layer and set **label** to **dist** using **number()** with **accuracy = 0.01**, **size** to **4**, **fontface** to **"bold"**, and **color** to **"#008E00"**.
+Alter the *fill gradient* with **scale_fill_gradient2()** by setting **low** to **"red"**, **mid** to **"white"**, and **high** to **"violet"**, **midpoint** to **2.7**, **limit** to **c(0, 5.4)**, **name** to **"Distance"**, and **na.value** to **"transparent"**.
+Alter the axis labels with **labs()** by setting **x** to **"Customer 2"** and **y** to **"Customer 1"**.
+Add a title for the plot with **ggtitle()** and set it to **"Euclidean Distance of Customers by\nSix Customer Characteristics"**.
+Use **theme()** to change the *panel background* to **"black"** and the *plot background* to **"mintcream"**, move the title to be *centered*, move the *legend* to the *bottom*, and *remove* the *grid lines*.
+Print **dist_heat_plot** to view the plot.
+
+**Question 3.2**: Answer these questions:
+(1) What is the *distance* between the *first* and *second* customers?
+(2) Which two customers are *most* distant of this set of customers?
+
+**Response 3.2**: 
+(1) 1.97
+(2) 4.45
+
+```{r, tast_3_2}
+# Convert cc_explore_dist to tibble
+cc_explore_dist_tib <- cc_explore_dist %>%
+  round(2) %>%
+  as.matrix() %>%
+  replace_lower_triangle(by = NA) %>%
+  as_tibble() %>%
+  rename(clust1 = rowname) %>%
+  pivot_longer(cols = -clust1, names_to = "cust_2", values_to = "dist") %>%
+  filter(!is.na(dist)) %>%
+  mutate(across(.cols = contains("cust"), 
+                .fns = as_factor))
+
+# Print cc_explore_dist_tib
+cc_explore_dist_tib
+```
+
+# Task 4: Agglomerative Hierarchical Clustering
+
+For this task, you will perform a *hierarchical cluster analysis*.
+
+## Task 4.1
+
+Perform three tasks.
+
+First, create an object named **cc_num_clust** by piping **credit_cards_work** to **select()** and selecting for **income:education**.
+
+Second, compute the unit distances with **get_dist()** and name the object **cc_num_clust_dist**.
+Set **cc_num_clust** as the *data* input, **"euclidean"** as the *method* input, and *standardize* the variables.
+
+Third, create a *heat map* with **fviz_dist()**.
+Set **cc_num_clust_dist** as the *data* input, **order** to **TRUE**, and **show_labels** to **FALSE**.
+
+**Question 4.1**: Does the heat map show customers being mostly *close* (*red*) or distant (*blue*) to each other?
+
+**Response 4.1**: Customers are close (red).
+
+```{r, task_4_1}
+cc_num_clust <- credit_cards_work %>%
+  select(income:education)
+
+cc_num_clust_dist <- get_dist(cc_num_clust, method = "euclidean", stand = TRUE)
+
+fviz_dist(cc_num_clust_dist, order = TRUE, show_labels = FALSE)
+```
+
+## Task 4.2
+
+Perform these tasks.
+
+First, perform a *hierarchical cluster analysis* on **cc_num_clust_dist** using **hclust()** and setting the **method** to **"complete"**.
+Save the results as **hclust_res**.
+
+Second, use **pluck()** to extract the *merge* sequence from **hclust_res** for the first *20* rows.
+
+Third, use **pluck()** to extract the *cluster distances* (**height**) from **hclust_res** for the first *20* rows.
+
+Fourth, create a dendrogram named **hclust_dend_plot** using **fviz_dend()**.
+Set **hclust_res** as the *object* input, *number of clusters* to **4**, and do *not* show the labels.
+Show the plot.
+
+**Question 4.2**: Answer these questions:
+(1) What two customers formed the *first* cluster?
+(2) Which customer became the *third* member of the *thirteenth* cluster?
+(3) What is the *cluster distance* for the *tenth* merge?
+(4) From the dendrogram, are there four *equally-sized* clusters?
+
+**Response 4.2**:
+(1) The first cluster was formed by customers -6 and -87.
+(2) The third member of the thirteenth cluster was customer -99.
+(3) The cluster distance for the tenth merge was 0.429.
+(4) From the dendrogram, it appears that there are not four equally-sized clusters. It looks like the are 2 set of equal clusters (RED:PURPLE & GREEN:BLUE).
+
+```{r, task_4_2}
+
+hclust_res <- hclust(cc_num_clust_dist, method = "complete")
+
+## summary
+summary(hclust_res)
+
+
+hclust_res %>% pluck("merge")%>%
+  as_tibble(.name_repair = ~ c("v_1", "v_2")) %>%
+  slice_head(n = 20)
+
+
+
+hclust_res %>%
+  pluck("height") %>%
+  as_tibble() %>%
+  slice_head(n = 20)
+
+
+hclust_dend_plot <- fviz_dend(hclust_res, k = 4, show_labels = FALSE)
+hclust_dend_plot
+```
+
+## Task 4.3
+
+Perform these tasks.
+
+First, create **cc_num_clust_res** from **cc_num_clust**.
+Pipe **cc_num_clust** to **mutate()** to cut the dendrogram from **hclust_res** with **cutree()** into **4** clusters naming the new column **hier_clust**.
+Convert **hier_clust** into a *factor* variable.
+Preview the **cc_num_clust_res** table.
+
+Second, call **cc_num_clust_res** and count the number of members in each cluster with **count()**.
+
+Third, call **cc_num_clust_res**, create groups with **hier_clust**, and summarize the numeric variables with **skim()**.
+
+**Question 4.3**: Answer these questions:
+(1) What is cluster membership of the *fourth* customer in **cc_num_clust_res**?
+(2) How many customers are in the *third* cluster?
+(3) Which cluster has customers with the *highest average education*?
+(4) Which cluster has customers with the *lowest average credit rating*?
+
+**Response 4.3**: 
+(1) They belong to the first cluster.
+(2) 16
+(3) 2nd cluster
+(4) 1st cluster
+
+```{r, task_4_3}
+
+cc_num_clust_res <- cc_num_clust %>%
+  mutate(hier_clust = cutree(hclust_res, 4),
+          hier_clust = as.factor(hier_clust))
+
+cc_num_clust_res
+
+
+cc_num_clust_res %>%
+  count(hier_clust)
+
+
+cc_num_clust_res %>%
+  group_by(hier_clust) %>%
+  skim()
+
+```
+
+## Task 4.4
+
+Perform these tasks.
+
+First, create **cc_num_clust_res_hier** from **cc_num_clust_res**.
+Make the table long with **pivot_longer()** and pivot all columns *except* for **hier_clust**. 
+Send the other variables to a column named **var** and their values to a column named **value**.
+Transform the strings of **var** to *title case* strings and convert **var** to a factor variable.
+Print **cc_num_clust_res_hier**.
+
+Second, create a plot named **hclust_var_plot**.
+Call **ggplot()** and set **cc_num_clust_res_hier** as the *data* input and map **hier_clust**, **value**, and **hier_clust** to the **x**, **y**, and **fill** aesthetics, respectively.
+Add a **geom_boxplot()** layer.
+Create facets using **var** in **facet_wrap()** and setting **nrow** to **3** and **scales** to **"free_y"**.
+Use **labs()** to update the *y-axis* title to **"Value"** and the **fill** to **"Cluster"**.
+Use **theme()** to position the *legend* to the *bottom* and *remove* the *x-axis* title.
+Print **hclust_var_plot** to view the plot.
+
+Third, create a plot named **hclust_pca_plot** to visualize the clustering results on the first two principal components.
+Call **fviz_cluster()** and call **list()** with the **data** input set to **cc_num_clust_res** with the **hier_clust** column removed and the **cluster** input set to **cc_num_clust_res** with the **hier_clust** column being pulled with **pull()** and converted to numeric with **as.numeric()**.
+Print **hclust_pca_plot** to view the plot.
+
+**Question 4.4**: Answer these questions:
+(1) Which cluster has the *lowest median credit rating*?
+(2) Which cluster has the *highest median credit cards*?
+(3) Using **hclust_pca_plot**, how much variance do the first two principal components account for in the original six variables? 
+(4) Using **hclust_pca_plot**, which cluster does customer number *22* to belong?
+
+**Response 4.4**: 
+(1) 1
+(2) 3
+(3) 17.3% & 46.1%
+(4) 3
+
+```{r, task_4_4}
+cc_num_clust_res_hier <- cc_num_clust_res %>%
+  pivot_longer(cols = -hier_clust, names_to = "var", values_to = "value") %>%
+  mutate(var = str_to_title(var),
+         var = as_factor(var))
+
+cc_num_clust_res_hier
+
+hclust_var_plot <- ggplot(cc_num_clust_res_hier, aes(x = hier_clust, y = value, fill = hier_clust)) +
+  geom_boxplot() +
+  facet_wrap(~ var, nrow = 3, scales = "free_y") +
+  labs(y = "Value", fill = "Cluster") +
+  theme(legend.position = "bottom",
+        axis.title.x = element_blank())
+
+hclust_var_plot
+
+hclust_pca_plot <- fviz_cluster(
+  list(data = cc_num_clust_res %>% select(-hier_clust), cluster = cc_num_clust_res %>% pull(hier_clust) %>% as.numeric())
+)
+
+hclust_pca_plot
+
+```
+
+# Task 5: K-Means Clustering
+
+For this task, you will perform a *k-means cluster analysis*.
+
+## Task 5.1
+
+Perform three tasks.
+
+First, create a data table named **cc_num_clust_stand** from **cc_num_clust**.
+Pipe **cc_num_clust** to **mutate()** and standardize *all* variables with **scale()** and convert them to numeric vectors with **as.numeric()**.
+
+Second, set the random seed to **2001** with **set.seed()**.
+Then, perform a *k-means cluster analysis* using **kmeans()** naming the result **kmeans_res**.
+Set the *data* input to **cc_num_clust_stand**, **centers** to **4**, and **nstart** to **25**.
+
+Third, use **pluck()** to extract the following information from **kmeans_res**: centroids of clusters, size of clusters, within-cluster sum of squares, total within-cluster sum of squares, between-cluster sum of squares, and total sum of squares.
+
+**Question 5.1**: Answer these questions:
+(1) What is the *centroid* value of the *fourth* cluster for *credit rating*?
+(2) What is the *within-cluster sum of squares* for the *second* cluster? 
+(3) Is the *total within-cluster sum of squares* or the *between-cluster sum of squares* greater?
+
+**Response 5.1**: 
+(1) 2.13
+(2) 152.64E
+(3) The total within-cluster sum of squares (632.79) is greater than the between-cluster sum of squares (561.21).
+
+```{r, task_5_1}
+cc_num_clust_stand <- cc_num_clust %>%
+  mutate(across(.cols = everything(), .fn = ~ scale(.x) %>% as.numeric))
+
+set.seed(2001)
+kmeans_res <- kmeans(cc_num_clust_stand, centers = 4, nstart = 25)
+
+summary(kmeans_res)
+
+kmeans_res %>%
+  ## pluck centroids
+  pluck("centers")
+kmeans_res %>%
+  ## pluck centroids
+  pluck("size")
+kmeans_res %>%
+  ## pluck centroids
+  pluck("withinss")
+kmeans_res %>%
+  ## pluck centroids
+  pluck("tot.withinss")
+kmeans_res %>%
+  ## pluck centroids
+  pluck("betweenss")
+kmeans_res %>%
+  ## pluck total sum of squares
+  pluck("totss")
+
+```
+
+## Task 5.2
+
+Perform two tasks.
+
+First, apply **fviz_nbclust()** to calculate the *total within-cluster sum of squares*.
+Set the *data* input to **cc_num_clust_stand**, the *function* input to **kmeans**, and the **method** to **"wss"**.
+
+Second, apply **fviz_nbclust()** to calculate the *total within-cluster sum of squares*.
+Set the *data* input to **cc_num_clust_stand**, the *function* input to **kmeans**, and the **method** to **"silhouette"**.
+
+**Question 5.2**: Answer these questions:
+(1) Using the *total within-cluster sum of squares* plot, approximately how many clusters would be optimal?
+(2) Using the *average silhouette width* plot, how many clusters would be optimal?
+
+**Response 5.2**:
+(1) 5
+(2) 2
+
+```{r, task_5_2}
+fviz_nbclust(
+  # data
+  cc_num_clust_stand, 
+  # function
+  kmeans, 
+  # method
+  method = "wss"
+)
+
+
+fviz_nbclust(
+  # data
+  cc_num_clust_stand, 
+  # function
+  kmeans, 
+  # method
+  method = "silhouette"
+)
+```
+
+## Task 5.3
+
+Perform these tasks.
+
+First, update **cc_num_clust_res** using **cc_num_clust_res** itself.
+Pipe **cc_num_clust_res** to **mutate()** to pluck from **kmeans_res** the *cluster assignments* naming the new column **kmeans_clust**.
+Convert **kmeans_clust** into a *factor* variable.
+Preview the **cc_num_clust_res** table.
+
+Second, call **cc_num_clust_res** and count the number of members in each cluster with **count()**.
+
+Third, call **cc_num_clust_res**, create groups with **kmeans_clust**, and summarize the numeric variables with **skim()**.
+
+**Question 5.3**: Answer these questions:
+(1) What is the cluster membership of the *fourth* customer in **cc_num_clust_res**?
+(2) How many customers are in the *third* cluster?
+(3) Which cluster has customers with the *highest average education*?
+(4) Which cluster has customers with the *lowest average credit rating*?
+
+**Response 5.3**: 
+(1) 2
+(2) 55
+(3) 3rd cluster
+(4) 4th cluster
+
+```{r, task_5_3}
+# Update cc_num_clust_res with k-means cluster assignments
+cc_num_clust_res <- cc_num_clust_res %>%
+  mutate(kmeans_clust = kmeans_res %>%
+           pluck("cluster"),
+         kmeans_clust = as_factor(kmeans_clust))
+
+# Preview the updated table
+cc_num_clust_res
+
+# Count the number of members in each cluster
+cc_num_clust_res %>%
+  count(kmeans_clust)
+
+# Summarize numeric variables by k-means clusters
+cc_num_clust_res %>%
+  group_by(kmeans_clust) %>%
+  skim()
+
+```
+
+## Task 5.4
+
+Perform these tasks.
+
+First, create **cc_num_clust_res_kmeans** from **cc_num_clust_res**.
+Pipe **cc_num_clust_res** to select all variables except for **hier_clust** using **select()**.
+Make the table long with **pivot_longer()** and pivot all columns *except* for **kmeans_clust**. 
+Send the other variables to a column named **var** and their values to a column named **value**.
+Transform the strings of **var** to *title case* strings and convert **var** to a factor variable.
+Print **cc_num_clust_res_kmeans**.
+
+Second, create a plot named **kmeans_var_plot**.
+Call **ggplot()** and set **cc_num_clust_res_kmeans** as the *data* input and map **kmeans_clust**, **value**, and **kmeans_clust** to the **x**, **y**, and **fill** aesthetics, respectively.
+Add a **geom_boxplot()** layer.
+Create facets using **var** in **facet_wrap()** and setting **nrow** to **3** and **scales** to **"free_y"**.
+Use **labs()** to update the *y-axis* title to **"Value"** and the **fill** to **"Cluster"**.
+Use **theme()** to position the *legend* to the *bottom* and *remove* the *x-axis* title.
+Print **kmeans_var_plot** to view the plot.
+
+Third, create a plot named **kmeans_pca_plot** to visualize the clustering results on the first two principal components.
+Call **fviz_cluster()** with the *object* input set to **kmeans_res** and the  **data** input set to **cc_num_clust_stand** 
+Print **kmeans_pca_plot** to view the plot.
+
+**Question 5.4**: Answer these questions:
+(1) Which cluster has the *lowest median credit rating*?
+(2) Which cluster has the *highest median credit limit*?
+(3) Using **kmeans_pca_plot**, which cluster does customer number *22* to belong?
+
+**Response 5.4**: 
+(1) 2
+(2) 4
+(3) 4
+
+```{r, task_5_4}
+
+cc_num_clust_res_kmeans <- cc_num_clust_res %>%
+  select(-hier_clust) %>%
+  pivot_longer(cols = -kmeans_clust, names_to = "var", values_to = "value") %>%
+  mutate(var = str_to_title(var),
+         var = as_factor(var))
+
+cc_num_clust_res_kmeans
+
+
+kmeans_var_plot <- ggplot(cc_num_clust_res_kmeans, aes(x = kmeans_clust, y = value, fill = kmeans_clust)) +
+  geom_boxplot() +
+  facet_wrap(~var, nrow = 3, scales = "free_y") +
+  labs(y = "Value", fill = "Cluster") +
+  theme(legend.position = "bottom", axis.title.x = element_blank())
+
+kmeans_var_plot
+
+
+kmeans_pca_plot <- fviz_cluster(kmeans_res, cc_num_clust_stand)
+
+kmeans_pca_plot
+```
+
+# Task 6: Partitioning Around Medoids
+
+For this task, you will perform a *partitioning around medoids cluster analysis*.
+
+## Task 6.1
+
+Perform three tasks.
+
+First, create an object named **cc_mix_clust** by piping **credit_cards_work** to **select()** and selecting for **income:education, gender:ethnicity**.
+
+Second, compute the unit distances with **daisy()** and name the object **cc_mix_clust_dist**.
+Set **cc_mix_clust** as the *data* input and **"gower"** as the *method* input.
+Print the summary of the **cc_mix_clust_dist** distance matrix with **summary()**.
+
+**Question 6.1**: What is the *median* unit distance?
+
+**Response 6.1**: 0.29457
+
+```{r, task_6_1}
+cc_mix_clust <- credit_cards_work %>%
+  select(income:education, gender:ethnicity)
+
+cc_mix_clust_dist <- daisy(cc_mix_clust, metric = "gower")
+
+
+summary(cc_mix_clust_dist)
+```
+
+## Task 6.2
+
+Perform these tasks.
+
+First, set the random seed to **2023** with **set.seed()**.
+Then, perform a *k-medoids cluster analysis* using **pam()** naming the result **pam_res**.
+Set the *data* input to **cc_mix_clust_dist**, **diss** to **TRUE**, and **k** to **2**.
+
+Second, use **pluck()** to extract **"clusinfo"** and **"silinfo"** from **pam_res**.
+
+**Question 6.2**: Answer these questions:
+(1) What is the *size* of the *first* cluster?
+(2) What is the *average silhouette width* for the *second* cluster? 
+(3) What is the *overall average silhouette width*?
+
+**Response 6.2**: 
+(1) 100
+(2) 0.2624882
+(3) 0.2917289
+
+```{r, task_6_2}
+# Set the random seed
+set.seed(2023)
+
+# Perform k-medoids cluster analysis
+pam_res <- pam(cc_mix_clust_dist, diss = TRUE, k = 2)
+
+str(pam_res)
+
+## clustering result
+pam_res %>%
+  ## pluck cluster information
+  pluck("clusinfo")
+
+## clustering result
+pam_res %>%
+  ## pluck silhouette information
+  pluck("silinfo")
+
+```
+
+## Task 6.3
+
+Perform these tasks.
+
+First, create an object named **pam_res_sil**.
+Use **map_dbl()** to perform a *k-medoids cluster analysis* for clusters of size **2:10**.
+Create a user-defined function with **k_inp** as an argument.
+Inside the user-defined function, name an object **pam_res** created with **pam()**.
+In **pam()**, set the *data* input to **cc_mix_clust_dist**, **diss** to **TRUE**, and **k** to **k_inp**.
+From **pam_res** pluck *overall average silhouette width* using **pluck()**.
+
+Second, update **pam_res_sil** in several ways.
+Convert **pam_res_sil** to a *tibble* with **as_tibble()**.
+Rename **value** to **avg_sil_width**.
+Add a row with **add_row()** *before the first row* with **avg_sil_width** set to **0** inside of **tibble()**.
+Update the data table to create **n_clus** with **1:10** and creating **max_sil_width** with an **if_else()** statement where the condition finds the row with the maximum average silhouette width using **max(avg_sil_width)**.
+Relocate **n_clus** to be the new *first* column.
+Print **pam_res_sil** to view the table.
+
+Create an unnamed plot with **ggplot()**.
+Set the *data* input to **pam_res_sil** and map **n_clus** to the *x-axis* and **avg_sil_width** to the *y-axis*.
+Add a **geom_line()** layer and set **color** to **"blue"**.
+Add a **geom_point()** layer and set **color** to **"blue"** and **size** to **2**.
+Add a **geom_vline()** layer and set **xintercept** to the *maximum average silhouette width* and **linetype** to **"dashed"**.
+Adjust the *x-axis* with **scale_x_continuous()** to set **breaks** to **seq(1, 10, 1)**.
+Adjust the *y-axis* with **scale_y_continuous()** to set **breaks** to **seq(0, 0.3, 0.1)**. 
+Adjust the axes labels to set the *x-axis* to **"Number of Clusters"** and *y-axis* to **"Average Silhouette Width"**.
+
+**Question 6.3**: How many clusters should be preferred according to the *average silhouette width* method?
+
+**Response 6.3**: 2
+
+```{r, task_6_3}
+pam_res_sil <- map_dbl(2:10, function(k_inp) {
+  pam_res <- pam(cc_mix_clust_dist, diss = TRUE, k = k_inp)
+  pam_res %>% pluck("silinfo","avg.width")
+})
+
+pam_res_sil <- pam_res_sil %>%
+  as_tibble() %>%
+  rename(avg_sil_width = value) %>%
+  add_row(tibble(avg_sil_width = 0), .before = 1) %>%
+ 
+  mutate(n_clus = 1:10, 
+         max_sil_width = if_else(
+                          avg_sil_width == max(avg_sil_width),
+                          TRUE,
+                          FALSE
+                          )) %>%
+  relocate(
+    n_clus,
+    .before = 1
+  )
+
+## print table
+pam_res_sil
+
+ggplot(pam_res_sil, aes(x = n_clus, y = avg_sil_width)) +
+  geom_line(color = "blue") +
+  geom_point(color = "blue", size = 2) +
+  geom_vline(xintercept = which.max(pam_res_sil$avg_sil_width), linetype = "dashed") +
+  scale_x_continuous(breaks = seq(1, 10, 1)) +
+  scale_y_continuous(breaks = seq(0, 0.3, 0.1)) +
+  labs(x = "Number of Clusters", y = "Average Silhouette Width")
+
+```
+
+## Task 6.4
+
+Perform these tasks.
+
+First, create **cc_mix_clust_res** using **cc_mix_clust**.
+Pipe **cc_mix_clust** to **mutate()** to pluck from **pam_res** the *cluster assignments* naming the new column **pam_clust**.
+Convert **pam_clust** into a *factor* variable.
+Preview the **cc_mix_clust_res** table.
+
+Second, call **cc_mix_clust_res** and count the number of members in each cluster with **count()**.
+
+Third, call **cc_mix_clust_res**, create groups with **pam_clust**, and summarize the numeric variables with **skim()**.
+
+**Question 6.4**: Answer these questions:
+(1) What is the cluster membership of the *fourth* customer in **cc_num_clust_res**?
+(2) How many customers are in the *second* cluster?
+(3) How many *married* customers are in the *first* cluster?
+(4) What is the *average number of credit cards* for customers in the *second* cluster?
+
+**Response 6.4**: 
+(1) 1
+(2) 100
+(3) 69 married customers
+(4) 3.06
+
+```{r, task_6_4}
+
+cc_mix_clust_res <- cc_mix_clust %>%
+  mutate(pam_clust = pam_res %>% pluck("clustering"),
+          pam_clust = as.factor(pam_clust))
+
+cc_mix_clust_res
+
+cc_mix_clust_res %>%
+  count(pam_clust)
+
+cc_mix_clust_res %>%
+  group_by(pam_clust) %>%
+  skim()
+
+```
+
+## Task 6.5
+
+Perform these tasks.
+
+First, create **cc_mix_clust_res_num_pam** from **cc_mix_clust_res**.
+Pipe **cc_mix_clust_res** to **select()** all *numeric* variables with **where()** and **is.numeric()** and select **pam_clust**.
+Make the table long with **pivot_longer()** and pivot all columns *except* for **pam_clust**. 
+Send the other variables to a column named **var** and their values to a column named **value**.
+Transform the strings of **var** to *title case* strings and convert **var** to a factor variable.
+Print **cc_mix_clust_res_num_pam**.
+
+Second, create a plot named **pam_num_var_plot**.
+Call **ggplot()** and set **cc_mix_clust_res_num_pam** as the *data* input and map **pam_clust**, **value**, and **pam_clust** to the **x**, **y**, and **fill** aesthetics, respectively.
+Add a **geom_boxplot()** layer.
+Create facets using **var** in **facet_wrap()** and setting **nrow** to **2** and **scales** to **"free_y"**.
+Use **labs()** to update the *y-axis* title to **"Value"** and the **fill** to **"Cluster"**.
+Use **theme()** to position the *legend* to the *bottom* and *remove* the *x-axis* title.
+Print **pam_num_var_plot** to view the plot.
+
+**Question 6.5**: Which cluster has customers with a *higher median age*?
+
+**Response 6.5**: 1
+
+```{r, task_6_5}
+
+cc_mix_clust_res_num_pam <- cc_mix_clust_res %>%
+  select(where(is.numeric), pam_clust) %>%
+  pivot_longer(cols = -pam_clust, names_to = "var", values_to = "value") %>%
+  mutate(var = str_to_title(var),
+          var = as_factor(var))
+
+cc_mix_clust_res_num_pam
+
+pam_num_var_plot <- ggplot(cc_mix_clust_res_num_pam, aes(x = pam_clust, y = value, fill = pam_clust)) +
+  geom_boxplot() +
+  facet_wrap(~ var, nrow = 2, scales = "free_y") +
+  labs(y = "Value", fill = "Cluster") +
+  theme(legend.position = "bottom",
+        axis.title.x = element_blank())
+
+pam_num_var_plot
+
+```
+
+## Task 6.6
+
+Perform these tasks.
+
+First, create **cc_mix_clust_res_fct_pam** from **cc_mix_clust_res**.
+Pipe **cc_mix_clust_res** to **select()** all *factor* variables with **where()** and **is.factor()**.
+Make the table long with **pivot_longer()** and pivot all columns *except* for **pam_clust**. 
+Send the other variables to a column named **var** and their values to a column named **value**.
+Transform the strings of **var** to *title case* strings and convert **var** to a factor variable.
+Apply **count()** to **pam_clust**, **var**, and **value** to count their combinations.
+Apply **group_by()** to group by **pam_clust** and **var**.
+Apply **mutate()** to calculate **prop** as **n / sum(n)**.
+Print **cc_mix_clust_res_fct_pam**.
+
+Second, create a plot named **pam_fct_var_plot**.
+Call **ggplot()** and set **cc_mix_clust_res_fct_pam** as the *data* input and map **value**, **prop**, and **pam_clust** to the **x**, **y**, and **fill** aesthetics, respectively.
+Add a **geom_col()** layer.
+Add a **geom_text()** layer with **label** set to **prop** using **percent()** to convert to percentages with *one* decimal place, **position** set using **position_stack()** with **vjust** set to **0.5**, **size** set to **3**, **fontface** set to **"bold"**, **color** set to **"white"**.
+Create facets using **pam_clust ~ var** in **facet_grid()**, setting **scales** to **"free_x"**, and setting **labeller** with **labeller()** where **pam_clust** is updated to rename the strips to **"Cluster: 1"** and **"Cluster: 2"**.
+Adjust the *y-axis* with **scale_y_continuous()** to change the **labels** with **percent_format()**.
+Adjust the **fill** with **scale_fill_brewer()** by setting **palette** to **"Set1"**.
+Use **labs()** to update the *y-axis* title to **"Percentage per Cluster"** and the **fill** to **"Cluster"**.
+Use **theme()** to position the *legend* to the *bottom* and *remove* the *x-axis* title.
+Print **pam_fct_var_plot** to view the plot.
+
+**Question 6.6**: Which cluster has only *women*?
+
+**Response 6.6**: 1
+
+```{r, task_6_6}
+
+# First step
+cc_mix_clust_res_fct_pam <- cc_mix_clust_res %>%
+  select(where(is.factor)) %>%
+  pivot_longer(cols = -pam_clust, names_to = "var", values_to = "value") %>%
+  mutate(var = str_to_title(var),
+          var = as_factor(var)) %>%
+  count(pam_clust, var, value) %>%
+  group_by(pam_clust, var) %>%
+  mutate(prop = n / sum(n))
+
+print(cc_mix_clust_res_fct_pam)
+
+## preview table 
+cc_mix_clust_res_fct_pam
+
+# Second step
+pam_fct_var_plot <- ggplot(cc_mix_clust_res_fct_pam, aes(x = value, y = prop, fill = pam_clust)) +
+  geom_col() +
+  geom_text(aes(label = percent(prop, accuracy = 0.1)), 
+            position = position_stack(vjust = 0.5), 
+            size = 3, 
+            fontface = "bold", 
+            color = "white") +
+  facet_grid(pam_clust ~ var, scales = "free_x", labeller = labeller(pam_clust = c(`1` = "Cluster: 1",`2` = "Cluster: 2"))) +
+  scale_y_continuous(labels = percent_format()) +
+  scale_fill_brewer(palette = "Set1") +
+  labs(y = "Percentage per Cluster") +
+  theme(legend.position = "bottom",
+        axis.title.x = element_blank())
+
+pam_fct_var_plot
+
+```
+
+## Task 6.7
+
+Create an object named **pam_patch_plot** from **pam_num_var_plot** and **pam_fct_var_plot** such that they are *side-by-side* in a single plot.
+Show **pam_patch_plot** to view the plot.
+
+**Question 6.7**: On which variable do the two clusters differ the most?
+
+**Response 6.7**: Gender
+
+```{r, task_6_7}
+pam_patch_plot <- pam_num_var_plot | pam_fct_var_plot
+
+pam_patch_plot
+```
+
+# Task 7: Save Objects
+
+For this task, you will save the objects you created.
+
+First, save the working data, **credit_cards_work**, as the data file: **credit_cards_work.csv** in the **data** folder of the project directory using **write_csv()** and **here()**.
+
+Second, save the three plot objects as **png** files in the **plots** folder of the project directory using the combination of **walk()**, **ls()**, **ggsave()**, **here()**, **str_glue()**, **str_remove()**, and **get()**.
+Use a width of *8.1 inches* and a height of *5 inches*.
+
+```{r, task_7}
+### save working data
+## use write_csv() to export as a csv data file
+write_csv(
+  ## name of object
+  credit_cards_work,
+  ## use here() to export data to project directory
+  here(
+    # folder
+    "data", 
+    # file
+    "credit_cards_work.csv"
+  )
+)
+
+### save plots
+## call function
+walk(
+  ## vector of plots
+  ls(
+    # name pattern
+    pattern = "plot"
+  ),
+  ## function
+  function(plot_inp) {
+    ### save plot
+    ## call function
+    ggsave(
+      ## file path
+      here(
+        # folder
+        "plots",
+        # file
+        str_glue(
+          # remove string
+          str_remove(
+            # string
+            plot_inp,
+            # pattern
+            "_plot"
+          ),
+          # extension
+          ".png"
+        )
+      ),
+      ## plot object
+      plot = get(plot_inp),
+      ## units
+      units = "in",
+      ## width
+      width = 8.1,
+      ## height
+      height = 5
+    )
+  }
+)
+```
+
+# Task 8: Conceptual Questions
+
+For your last task, you will respond to conceptual questions based on the conceptual lectures for this week.
+
+**Question 8.1**: What is the difference between *Euclidean* and *Manhattan* unit distances?
+
+**Response 8.1**: 
+Euclidean distance is the straight-line distance between two points in Euclidean space. It is calculated as the square root of the sum of the squared differences between corresponding coordinates of the two points. In other words, it measures the length of the shortest path between two points. Manhattan distance is the sum of the absolute differences between the coordinates of the two points. It measures the distance a car would travel between two points on a grid-like city street system. In summary, Euclidean distance is the shortest path between two points, while Manhattan distance is the sum of the horizontal and vertical distances between them.
+
+**Question 8.2**: What is the difference between the *single* and *complete* cluster distances?
+
+**Response 8.2**: 
+Single linkage calculates the distance between two clusters as the shortest distance between any two points in the two clusters. It tends to produce long, elongated clusters because it merges clusters based on the closest points.Complete linkage calculates the distance between two clusters as the longest distance between any two points in the two clusters. It tends to produce compact, spherical clusters because it merges clusters based on the farthest points.
+
+**Question 8.3**: What are at least *two* advantages of *k-medoids* clustering compared to *k-means* clustering?
+
+**Response 8.3**: 
+
+1 - K-medoids is more robust to outliers than k-means because it uses medoids as cluster centers instead of means. This means that the cluster centers are less affected by outliers, as they are less sensitive to extreme values. 
+
+2- K-medoids can handle non-numeric data directly, as it computes distances using a similarity measure appropriate for the data type. In contrast, k-means requires numerical data and assumes that distances can be computed using Euclidean distance, which may not be suitable for non-numeric data.

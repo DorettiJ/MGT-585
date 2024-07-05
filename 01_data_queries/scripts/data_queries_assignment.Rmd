@@ -1,0 +1,1060 @@
+---
+title: "Assignment: Data Queries"
+author: "Jonathon Doretti"
+date: "`r lubridate::now(tzone = 'America/Chicago')`"
+output:
+  html_document:
+    toc: TRUE
+    toc_depth: 2
+    toc_float: TRUE
+    theme: yeti
+    highlight: zenburn
+    df_print: paged
+    code_folding: show
+editor_options:
+  chunk_output_type: console
+---
+
+# Instructions
+
+This assignment reviews the *Data Queries* content. 
+You will use the **data_queries.Rmd** file I reviewed as part of the lectures for this week to complete this assignment. 
+You will *copy and paste* relevant code from that file and update it to answer the questions in this assignment. 
+You will respond to questions in each section after executing relevant code to answer a question. 
+You will submit this assignment to its *Submissions* folder on *D2L*.
+You will submit *two* files:
+
+1. this completed *R Markdown* script, and 
+2. an *HTML* rendered version of it to *D2L*.
+
+To start:
+
+First, create a folder on your computer to save all relevant files for this course. 
+If you did not do so already, you will want to create a folder named **mgt_585** that contains all of the materials for this course.
+
+Second, inside of **mgt_585**, you will create a folder to host assignments.
+You can name that folder **assignments**.
+Inside the **assignments** folder, you can create a folder for topic assignments named: **topics**.
+
+Third, inside of the **topics** folder, you will create folders for each assignment.
+You can name the folder for this assignment: **01_data_queries**.
+
+Fourth, create two additional folders in **01_data_queries** named **scripts**, **data**, and **plots**.
+Store this script in the **scripts** folder and the data for this assignment in the **data** folder.
+
+Fifth, go to the *File* menu in *RStudio*, select *New Project...*, choose *Existing Directory*, go to your */mgt_585/assignments/topics/01_data_queries* folder to select it as the top-level directory for this *R Project*.  
+
+# Global Settings
+
+The first code chunk sets the global settings for the remaining code chunks in the document.
+Do *not* change anything in this code chunk.
+
+```{r, setup, include = FALSE}
+## specify echo setting for all code chunks
+knitr::opts_chunk$set(
+  # show code
+  echo = TRUE,
+  # show messages
+  message = FALSE,
+  # show warnings
+  warning = FALSE
+)
+```
+
+# Activate Packages
+
+In this code chunk, we load the following packages:
+
+1. [here](https://here.r-lib.org);
+2. [tidyverse](https://www.tidyverse.org);
+3. [readxl](https://readxl.tidyverse.org);
+4. [lubridate](https://lubridate.tidyverse.org/index.html);
+5. [skimr](https://docs.ropensci.org/skimr/);
+6. [scales](https://scales.r-lib.org).
+
+Make sure you installed these packages when you reviewed the analytical lecture.
+
+We will use functions from these packages to examine the data. 
+Do *not* change anything in this code chunk.
+
+```{r, packages}
+## here for project workflow
+library(here)
+
+## tidyverse for data manipulation and plotting;
+## loads eight different packages simultaneously
+library(tidyverse)
+
+## readxl for Excel files
+library(readxl)
+
+## lubridate for dates
+library(lubridate)
+
+## skimr for data summaries
+library(skimr)
+
+## scales for variable scales
+library(scales)
+```
+
+# Task 1: Import Data
+
+We will use the same data as in the analytical lecture: **clients.xlsx**.
+After you load the data, then you will execute other commands on the data.
+
+## Task 1.1
+
+Use the **read_excel()** and **here()** functions to load the *second sheet* from this Excel data file for this working session. 
+Save the data as the object **clients_raw**. 
+
+After you load the data, look at your *Global Environment* window. 
+
+**Question 1.1**: Answer these questions:
+(1) How many *observations* are there in the data?
+(2) How many *variables* are there in the data?
+
+**Response 1.1**: 
+(1) 919
+(2) 10
+
+```{r, task_1_1}
+
+clients_raw <- read_excel(
+  ## use here() to locate file in our project directory
+  here(
+    # folder
+    "data", 
+    # file
+    "clients.xlsx"
+  ),
+  ## specify sheet
+  sheet = 2
+)
+
+```
+
+# Task 2: Clean Data
+
+You will now inspect and clean the data.
+
+## Task 2.1
+
+Use the **glimpse()** function to view a preview of values for each variable in the data. 
+
+**Question 2.1**: Answer these questions:
+(1) What is the *first* value of the **age** variable?
+(2) How many variables are treated as character (i.e., **chr**) variables after importing the data?
+
+**Response 2.1**: 
+(1) 36
+(2) 5
+
+```{r, task_2_1}
+
+glimpse(clients_raw)
+
+```
+
+## Task 2.2
+
+Perform the following in one chained command.
+First, bind the name **clients_work** to an updated version of **clients_raw**.
+Second, update **clients_raw** by piping it to the **rename()** function to rename the following variables: 
+
+1. **credit.term** to **credit_term**;
+2. **FamilyStatus** to **family_status**.
+
+Third, pipe the result to **mutate()** to perform the following updates:
+
+1. update the **month** column using the **month()** function to add abbreviated labels for each month;
+2. apply the **across()** function to convert **c(sex, product_type:family_status, -income)** to *nominal* factors;
+3. update **education** to be an *ordinal* factor with the following order: **"Incomplete secondary education"**, **"Secondary education"**, **"Secondary special education"**, **"Incomplete higher education"**, **"Higher education"**, and **"PhD degree"**.
+
+Apply **glimpse()** to **clients_work** to preview the working data.
+
+**Question 2.2**: Answer these questions:
+(1) How many *nominal* factor variables (indicated by *fct*) are there now in the data?
+(2) How many *ordinal* factor variables (indicated by *ord*) are there now in the data?
+
+**Response 2.2**:
+(1) 4
+(2) 2
+
+```{r, task_2_2}
+
+clients_work <- clients_raw %>%
+  ## rename variables
+  rename(
+    # credit amount
+    credit_term = credit.term,
+    # product type
+    family_status = FamilyStatus
+  ) %>%
+  ## mutate to factors
+  mutate(
+    ## convert to date
+    month = month(
+      # variable
+      month,
+      # labels
+      label = TRUE
+    ),
+    ## apply function to columns
+    across(
+      # variables
+      .cols = c(sex, product_type:family_status, -income),
+      # convert to factors
+      .fns = as_factor
+    ),
+    ## convert to factor
+    education = factor(
+      # column
+      education,
+      # levels
+      levels = c(
+        # lowest to highest
+        "Incomplete secondary education",
+        "Secondary education", 
+        "Secondary special education",
+        "Incomplete higher education",
+        "Higher education",
+        "PhD degree"
+      ),
+      # ordered
+      ordered = TRUE
+    )
+  )
+
+glimpse(clients_work)
+```
+
+## Task 2.3
+
+Update **clients_work** by overwriting it.
+First, pipe **clients_work** to **mutate()**.
+Use the combination of **across()**, **fct_relabel()**, and **str_to_title()** to change the casing of **c(sex:product_type)**.
+Second, pipe the result to **rowid_to_column()** to add an identifier column.
+
+Print **clients_work**.
+
+**Question 2.3**: Answer these questions:
+(1) What is the *credit amount* of the *fourth* client?
+(2) What is the *credit term* of the *third* client?
+
+**Response 2.3**: 
+(1) 28,000
+(2) 15
+
+```{r, task_2_3}
+
+clients_work <- clients_work %>%
+  ## mutate factor levels
+  mutate(
+    ## apply function to columns
+    across(
+      # variables
+      .cols = c(sex:product_type),
+      # convert to factors
+      .fns = ~ fct_relabel(
+        # factors
+        .x,
+        # relabeling function
+        str_to_title
+      )
+    )
+  ) %>%
+  ## add row id
+  rowid_to_column(
+    # name
+    var = "row_id"
+  )
+
+## print table
+clients_work
+
+```
+
+# Task 3: Query Data
+
+You will now query the data.
+
+## Task 3.1
+
+Perform the following two slices.
+First, pipe **clients_work** to **slice_max()** to slice for the *seven* maximum **credit_amount** values.
+Second, pipe **clients_work** to **slice_min()** to slice for the minimum *0.02* **credit_term** values with *no* ties.
+
+**Question 3.1**: Answer these questions:
+(1) What is the maximum *credit amount* in the data?
+(2) What is the minimum *credit term* in the data?
+
+**Response 3.1**: 
+(1)  301000  
+(2)  3
+
+```{r, task_3_1}
+
+### select particular rows by condition
+## call data
+clients_work %>%
+  ## slice for maximum value
+  slice_max(
+    # variable
+    credit_amount, 
+    # number
+    n = 7 
+  )
+
+### select particular rows by condition
+## call data
+clients_work %>%
+  ## slice for minimum value
+  slice_min(
+    # variable
+    credit_term, 
+    # proportion
+    prop = 0.02,
+    # ties
+    with_ties = FALSE
+  )
+
+```
+
+## Task 3.2
+
+Arrange the rows of **clients_work** by *descending* **income** and *ascending* **age**.
+
+**Question 3.2**: Answer these questions:
+(1) What is the highest *income* in the data?
+(2) What is the **row_id** of the third listed client?
+
+**Response 3.2**: 
+(1) 401000
+(2) 897
+
+```{r, task_3_2}
+### arrange rows by variables
+## call data
+clients_work %>%
+  ## arrange rows by column
+  arrange(
+    # descending
+    desc(income),
+    # ascending
+    age,
+    
+  )
+
+```
+
+## Task 3.3
+
+Perform the following query.
+First, pipe **clients_work** to **select()**.
+Select the following variables: **row_id**, **month**, **product_type**, and **income**.
+
+Second, pipe the result to **filter()**.
+Filter for the following conditions:
+
+1. filter for *November* and *December* with **month %in% c("Nov", "Dec")**;
+2. **income** less than `$50,000`.
+
+**Question 3.3**: How many clients meet these conditions?
+
+**Response 3.3**: 286
+
+```{r, task_3_3}
+clients_work %>%
+  ## select variables
+  select(row_id, month, product_type, income) %>%
+  ## filter rows
+  filter(
+    # exclude products
+    month %in% c("Nov", "Dec"), 
+    # credit amount limit
+    income < 50000
+  )
+```
+
+# Task 4: Summarize Variables
+
+You will now compute summaries of the data.
+
+## Task 4.1
+
+Perform the following summary computations.
+First, pipe **clients_work** to **count()**.
+Count by **region** and **family_status**.
+Second, pipe the result to **group_by()**.
+Group by **region**.
+Third, pipe the result to **mutate()**.
+Calculate **prop** as **n / sum(n)**.
+
+**Question 4.1**: Irrespective of *region*, what is the *most* frequent *family status* category?
+
+**Response 4.1**: The most frequent family status category irrespective of region is Unmarried.
+
+```{r, task_4_1}
+### count values by groups
+## call data
+clients_work %>%
+  ## count by multiple variables
+  count(region, family_status) %>%
+  ## groups
+  group_by(region) %>%
+  ## update
+  mutate(
+    # proportions
+    prop = n / sum(n)
+  )
+
+```
+
+## Task 4.2
+
+Perform the following summary computations.
+First, pipe **clients_work** to **group_by()**.
+Group by **sex**.
+Second, pipe the result to **select()**.
+Select **credit_term**, **region**, and **income**.
+Third, pipe the result to **skim()**.
+
+**Question 4.2**: Answer these questions:
+(1) What is the *75th percentile* of *income* for *men*?
+(2) How many *women* are in the *West* region?
+
+**Response 4.2**: 
+(1) 36000
+(2) 354
+
+```{r, task_4_2}
+### summarize data by group
+## call data
+clients_work %>%
+  ## group by variable
+  group_by(sex) %>%
+  ## select variables
+  select(credit_term, region, income) %>%
+  ## summarize
+  skim()
+```
+
+# Task 5: Data Visualization
+
+You will now visualize the data.
+
+## Task 5.1
+
+Create a horizontal bar plot of **product_type** that calculates the percentages of clients in each category.
+First, bind the name **product_type_plot** to a **ggplot()** object.
+Second, inside of **ggplot()** specify **clients_work** as the *data* input; 
+map **product_type** to the *y-axis* using **fct_infreq()** and **fct_rev()** around it;
+map **group** to **1**.
+Third, add a **geom_bar()** layer;
+map **prop** to the *x-axis* using **after_stat()**;
+set **fill** to **lightblue**.
+Fourth, add a **geom_text()** layer;
+set **stat** to **"count"**;
+map **prop** to the *x-axis* using **after_stat()**;
+map **prop** to the **label** using **after_stat()** and **percent()**;
+set **color** to **black**;
+set **size** to **4**;
+set **fontface** to **bold**;
+set **position** to **position_stack()** with **vjust** set to **0.5**.
+Fifth, alter the x-axis with **scale_x_continuous()** setting **labels** to **percent_format()**.
+Sixth, set the axes labels with **labs()**;
+set the *x-axis* to **"Frequency Percentage"**;
+set the *y-axis* to **"Product Type"**.
+Seventh, set the theme to **theme_bw()**.
+
+Show the plot.
+
+**Question 5.1**: Answer these questions:
+(1) What percentage of bought items were *cosmetics and beauty services*?
+(2) What type of product was bought most frequently?
+
+**Response 5.1**: 
+(1) 4.03%
+(2) Household Appliances
+
+```{r, task_5_1}
+### plot single discrete variable
+### create plot
+product_type_plot <- ggplot(
+  ## data
+  data = clients_work,
+  ## mapping
+  mapping = aes(      
+    # y-axis: variable of interest
+    y = 
+      # reverse order
+      fct_rev(
+        # order by frequency of levels
+        fct_infreq(product_type)
+      ),
+    # treat data as single group
+    group = 1
+  )
+) +
+  ## choose geometry with proportion calculation
+  geom_bar(
+    ## mapping
+    mapping = aes(    
+      # x-axis: proportions
+      x = after_stat(prop)
+    ),
+    # fill
+    fill = "lightblue"
+  ) +
+  ## text geometry
+  geom_text(
+    # stat
+    stat = "count",
+    # add label 
+    aes(
+      # x-axis: proportions
+      x = after_stat(prop),
+      # label and number of digits
+      label = percent(
+        # label
+        after_stat(prop)
+      )
+    ), 
+    # justify horizontally above bar
+    color = "black",
+    # size of text
+    size = 4,
+    # font
+    fontface = "bold", 
+    # position label in middle of bars
+    position = position_stack(
+      # middle of bar
+      vjust = 0.5
+    )
+  ) +
+  ## change format of x-axis
+  scale_x_continuous(
+    # percents
+    labels = percent_format()
+  ) + 
+  ## label axes
+  labs(
+    # x-axis
+    x = "Frequency Percentage", 
+    # y-axis
+    y = "Product Type"
+  ) +
+  ## theme
+  theme_bw()
+
+## show plot
+product_type_plot
+```
+
+## Task 5.2
+
+Create a histogram plot of **credit_term**.
+First, bind the name **credit_term_hist_plot** to a **ggplot()** object.
+Second, inside of **ggplot()** specify **clients_work** as the *data* input; 
+map **credit_term** to the *x-axis*.
+Third, add a **geom_histogram()** layer;
+set **bins** to **8**;
+set **fill** to **red**.
+Fourth, add a **stat_bin()** layer;
+set **geom** to **"text"**;
+map **count** to the **label** using **after_stat()**;
+map **group** to **1**;
+set **bins** to **8**;
+set **color** to **black**;
+set **size** to **5**;
+set **position** to **position_stack()** with **vjust** set to **0.5**.
+Fifth, alter the x-axis with **scale_x_continuous()** setting **n.breaks** to **8**.
+Sixth, set the axes labels with **labs()**;
+set the *x-axis* to **"Credit Term"**;
+set the *y-axis* to **"Count"**.
+
+Show the plot.
+
+**Question 5.2**: Answer these questions:
+(1) Are there more clients with a *credit term* of approximately *30-35* or *35-40*?
+(2) Are there more than *300* individuals with a *credit term* of approximately *12.5-17*?
+
+**Response 5.2**: 
+(1) 35-40
+(2) Yes
+
+```{r, task_5_2}
+
+### histogram of single continuous variable
+## choose data and mapping
+credit_term_hist_plot <- ggplot(
+  ## data
+  data = clients_work, 
+  ## mapping
+  mapping = aes(
+    # x-axis
+    x = credit_term
+  )
+) +
+  ## choose geometry with proportion calculation
+  geom_histogram(
+    # number of bins
+    bins = 8, 
+    # fill
+    fill = "red"
+  ) +
+  ## text geometry above bars
+  stat_bin(
+    ## geometry
+    geom = "text",
+    # add label 
+    aes(
+      # label and number of digits
+      label = after_stat(count), 
+      # treat data as single group
+      group = 1
+    ),
+    # number of bins
+    bins = 8,
+    # justify horizontally above bar
+    color = "black",
+    # size of text
+    size = 5,
+    # position label in middle of bars
+    position = position_stack(
+      # middle of bar
+      vjust = 0.5
+    )
+  ) +
+  ## adjust x-axis scale
+  scale_x_continuous(
+    # number of breaks
+    n.breaks = 8
+  ) +
+  ## label axes
+  labs(
+    # x-axis
+    x = "Credit Term", 
+    # y-axis
+    y = "Count"
+  ) 
+
+## show plot
+credit_term_hist_plot
+```
+
+## Task 5.3
+
+Create a density plot of **credit_term**.
+First, bind the name **credit_term_density_plot** to a **ggplot()** object.
+Second, inside of **ggplot()** specify **clients_work** as the *data* input; 
+map **credit_term** to the *x-axis*.
+Third, set the axes labels with **labs()**;
+set the *x-axis* to **"Credit Term"**;
+set the *y-axis* to **"Density"**.
+Fourth, set the title with **ggtitle()**;
+set the main title to **"Skewed Distribution of Credit Term"**;
+set the subtitle to **"Client Data for Second 6 Months"**.
+Fifth, set the theme to **theme_dark()**.
+
+Show the plot.
+
+**Question 5.3**: How many modes (i.e., peaks) do you see for *credit terms* falling between *0* to *20* months?
+
+**Response 5.3**: 3
+
+```{r, task_5_3}
+### density plot of single continuous variable
+## choose data and mapping
+credit_term_density_plot <- ggplot(
+  ## data
+  data = clients_work, 
+  ## mapping
+  mapping = aes(
+    # x-axis
+    x = credit_term
+  )
+) +
+  ## choose geometry with proportion calculation
+  geom_density(
+    # fill
+    fill = "pink", 
+    # color
+    color = "white", 
+    # transparency
+    alpha = 0.5
+  ) +
+  ## label axes
+  labs(
+    # x-axis
+    x = "Credit Term", 
+    # y-axis
+    y = "Density"
+  ) +
+  ## title
+  ggtitle(
+    # main title
+    "Skewed Distribution of Credit Term",
+    # subtitle
+    subtitle = "Client Data for Second 6 Months"
+  ) +
+  ## theme
+  theme_dark()
+
+## show plot
+credit_term_density_plot
+
+```
+
+## Task 5.4
+
+Create a bar plot calculating the *percentage* of *men* and *women* from various *regions*.
+First, bind the name **region_gender_plot** to a **ggplot()** object.
+Second, inside of **ggplot()** specify **clients_work** as the *data* input; 
+map **region** to the *x-axis*;
+map **sex** to the **group** and **fill** aesthetics.
+Third, add a **geom_bar()** layer;
+map **prop** to the *y-axis* using **after_stat()**;
+set **position** to **"dodge"**.
+Fourth, set the axes labels with **labs()**;
+set the *x-axis* to **"Region"**.
+set the *y-axis* to **"Frequency Percentage by Gender"**;
+set the **fill** to **"Gender"**.
+Fifth, alter the y-axis with **scale_y_continuous()** setting **labels** to **percent_format()**.
+Sixth, add a **geom_text()** layer;
+set **stat** to **"count"**;
+map **prop** to the *y-axis* using **after_stat()**;
+map **prop** to the **label** using **after_stat()** and **percent()**;
+set **vjust** to **-0.5**;
+set **position** to **position_dodge()** with **width** set to **0.9**;
+set **size** to **3**.
+Seventh, set **palette** to **"Set1"** in **scale_fill_brewer()**.
+Eighth, set the main title to **"Small Differences in Region by Gender"**.
+
+Show the plot.
+
+**Question 5.4**: Are men and women similarly distributed across the regions?
+
+**Response 5.4**: The amount of men to women are similar across all regions, however, the west has perdominatly more men and women than the east and midwest.
+
+```{r, task_5_4}
+### plot multiple categorical variables;
+### plot percentage of men and women in each role
+### relative to own gender
+## save plot
+region_gender_plot <- ggplot(
+  ## data
+  data = clients_work,
+  ## specify mapping
+  mapping = aes(
+    # x-axis
+    x = region, 
+    # groups
+    group = sex, 
+    # fill
+    fill = sex
+  )
+) +
+  ## choose geometry with proportion calculation
+  geom_bar(
+    ## mapping
+    aes(
+      # y-axis: proportion
+      y = after_stat(prop)
+    ),
+    ## place bars side-by-side
+    position = "dodge"
+  ) +
+  ## label mappings
+  labs(
+    # x-axis
+    x = "Region", 
+    # y-axis
+    y = "Frequency Percentage by Gender", 
+    # legend
+    fill = "Gender"
+  ) +
+  ## change format of y-axis
+  scale_y_continuous(
+    # percents
+    labels = percent_format()
+  ) +
+  ## add text to bars
+  geom_text(
+    # stat for geometry
+    stat = "count", 
+    # aesthetics
+    aes(
+      # proportion  
+      y = after_stat(prop),
+      # label and number of digits
+      label = percent(
+        # labels
+        after_stat(prop), 
+        # decimals
+        accuracy = 0.1
+      )
+    ), 
+    # justify vertically above bar
+    vjust = -0.5, 
+    # position label above each bar
+    position = position_dodge(
+      # width
+      width = 0.9
+    ), 
+    # size of text
+    size = 3
+  ) +
+  ## scale color
+  scale_fill_brewer(
+    # palette
+    palette = "Set1"
+  ) +
+  ## add descriptive title
+  ggtitle("Small Differences in Region by Gender")
+
+# Display the plot
+region_gender_plot
+
+```
+
+## Task 5.5
+
+Create a scatter plot *credit term* and *credit amount*.
+First, bind the name **credit_term_amount_plot** to a **ggplot()** object.
+Second, inside of **ggplot()** specify **clients_work** as the *data* input; 
+map **credit_term** to the *x-axis*;
+map **credit_amount** to the **y-axis**.
+Third, add a **geom_point()** layer;
+set **alpha** to **0.4**;
+set **color** to **"blue"**.
+Fourth, add a **geom_smooth()** layer;
+set **method** to **"loess"**;
+set **formula** to **"y ~ x"**;
+set **se** to **FALSE**;
+set **color** to **"red"**.
+Fifth, alter the y-axis with **scale_y_continuous()** setting **labels** to **dollar_format()**.
+Sixth, set the axes labels with **labs()**;
+set the *x-axis* to **"Credit Term"**.
+set the *y-axis* to **"Credit Amount"**.
+
+Show the plot.
+
+**Question 5.5**: Does the relationship between *credit amount* and *credit term* trend *positively* or *negatively*?
+
+**Response 5.5**: The relationship trends positively.
+
+```{r, task_5_5}
+### examine relationship between two numeric variables;
+### use loess line to examine type of relationship
+## save plot
+credit_term_amount_plot <- ggplot(
+  ## data
+  clients_work, 
+  ## mapping
+  aes(
+    # x-axis
+    x = credit_term, 
+    # y-axis
+    y = credit_amount
+  )
+) +
+  ## choose point geometry for scatterplot
+  geom_point(
+    # transparency
+    alpha = 0.4, 
+    # color
+    color = "blue"
+  ) +
+  ## loess line
+  geom_smooth(
+    # smoother
+    method = "loess", 
+    # formula
+    formula = "y ~ x",
+    # standard error ribbon
+    se = FALSE, 
+    # color
+    color = "red"
+  ) +
+  ## scale y-axis
+  scale_y_continuous(
+    # dollars
+    labels = dollar_format()
+  ) +
+  ## label axes
+  labs(
+    # x-axis
+    x = "credit_term", 
+    # y-axis
+    y = "Credit Amount"
+  )
+
+## show plot
+credit_term_amount_plot
+
+```
+
+## Task 5.6
+
+Create a box plot  of *income* as a function of *family status*.
+First, bind the name **income_fam_stat_plot** to a **ggplot()** object.
+Second, inside of **ggplot()** specify **clients_work** as the *data* input; 
+map **family_status** to the *x-axis*;
+map **income** to the **y-axis**;
+map **family_status** to the **fill**.
+Third, add a **geom_boxplot()** layer;
+set **outlier.color** to **"red"**;
+set **outlier.size** to **2**.
+Fourth, add a **geom_jitter()** layer;
+set **width** to **0.01**;
+set **alpha** to **0.2**.
+Fifth, set the axes labels with **labs()**;
+set the *x-axis* to **"Credit Term"**.
+set the *y-axis* to **"Income"**.
+Sixth, set **palette** to **"Set1"** in **scale_fill_brewer()**.
+Seventh, remove the legend in **theme()** by setting **legend.position** to **"none"**.
+
+Show the plot.
+
+**Question 5.6**: Which category of *family status* has the largest outliers?
+
+**Response 5.6**: Unmarried
+
+```{r, task_5_6}
+### create boxplot
+## save plot
+income_fam_stat_plot <- ggplot(
+  ## data
+  clients_work, 
+  ## mapping
+  aes(
+    # x-axis
+    x = family_status, 
+    # y-axis
+    y = income, 
+    # fill
+    fill = family_status
+  )
+) +
+  ## add boxplot
+  geom_boxplot(
+    # color of outliers
+    outlier.color = "darkred",
+    # size of outliers
+    outlier.size = 2
+  ) +
+  ## add points
+  geom_jitter(
+    # amount to jitter
+    width = 0.01, 
+    # transparency
+    alpha = 0.2
+  ) +
+  ## labels
+  labs(
+    # x-axis
+    x = "Family Status", 
+    # y-axis
+    y = "income"
+  ) +
+  ## scale color
+  scale_fill_brewer(
+    # palette
+    palette = "Set2"
+  ) +
+  ## update theme
+  theme(
+    # remove legend
+    legend.position = "none"
+  )
+
+## show plot
+income_fam_stat_plot
+```
+
+# Task 6: Save Objects
+
+For this task, you will save the objects you created.
+
+First, save the working data, **clients_work**, as the data file: **clients_s2_work.csv** in the **data** folder of the project directory using **write_excel_csv()** and **here()**.
+
+Second, save the six plots from the fifth task as **png** files in the **plots** folder of the project directory using the combination of **walk()**, **ls()**, **ggsave()**, **here()**, **str_glue()**, **str_remove()**, and **get()**.
+Use a width of *8.1 inches* and a height of *5 inches*.
+
+```{r, task_6}
+### save working data
+## use write_excel_csv() to export as a csv data file
+write_excel_csv(
+  ## name of object
+  clients_work,
+  ## use here() to export data to project directory;
+  here("data", "clients_s2_work.csv")
+)
+
+### save plots
+## call function
+walk(
+  ## vector of plots
+  ls(
+    # name pattern
+    pattern = "plot"
+  ),
+  ## function
+  function(plot_inp) {
+    ### save plot
+    ## call function
+    ggsave(
+      ## file path
+      here(
+        # folder
+        "plots",
+        # file
+        str_glue(
+          # remove string
+          str_remove(
+            # string
+            plot_inp,
+            # pattern
+            "_plot"
+          ),
+          # extension
+          ".png"
+        )
+      ),
+      ## plot object
+      plot = get(plot_inp),
+      ## units
+      units = "in",
+      ## width
+      width = 8.1,
+      ## height
+      height = 5
+    )
+  }
+)
+```
+
+# Task 7: Conceptual Questions
+
+For your last task, you will respond to conceptual questions based on the conceptual lectures for this week.
+
+**Question 7.1**: What is a percentile of a variable?
+
+**Response 7.1**: 
+A percentile of a variable is a measure that indicates the relative standing of a particular value within the entire dataset. It represents the percentage of data points that are less than or equal to a given value. For example, the 75th percentile of a dataset is the value below which 75% of the data falls.
+
+**Question 7.2**: What is the difference between the variance and standard deviation of a variable?
+
+**Response 7.2**: 
+Variance is the average of the squared differences between each data point and the mean. It is calculated as the sum of squared differences divided by the number of data points.Standard deviation, on the other hand, is the square root of the variance. It is expressed in the same units as the original data and provides a more interpretable measure of spread than variance.
+
+**Question 7.3**: What five statistics are computed in a box plot?
+
+**Response 7.3**: 
+Minimum: The smallest value in the dataset.
+First quartile (Q1): The value below which 25% of the data falls.
+Median (Q2): The middle value of the dataset when it is ordered from smallest to largest.
+Third quartile (Q3): The value below which 75% of the data falls.
+Maximum: The largest value in the dataset.
