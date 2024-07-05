@@ -1,0 +1,762 @@
+---
+title: "Assignment: Elastic Nets"
+author: "Jon Doretti"
+date: "`r lubridate::now(tzone = 'America/Chicago')`"
+output:
+  html_document:
+    toc: TRUE
+    toc_depth: 2
+    toc_float: TRUE
+    theme: yeti
+    highlight: zenburn
+    df_print: paged
+    code_folding: show
+editor_options:
+  chunk_output_type: console
+---
+
+# Instructions
+
+This assignment reviews the *Elastic Nets* content. 
+You will use the **elastic_nets.Rmd** file I reviewed as part of the lectures for this week to complete this assignment. 
+You will *copy and paste* relevant code from that file and update it to answer the questions in this assignment. 
+You will respond to questions in each section after executing relevant code to answer a question. 
+You will submit this assignment to its *Submissions* folder on *D2L*.
+You will submit *two* files:
+
+1. this completed *R Markdown* script, and 
+2. an *HTML* rendered version of it to *D2L*.
+
+To start:
+
+First, create a folder on your computer to save all relevant files for this course. 
+If you did not do so already, you will want to create a folder named **mgt_585** that contains all of the materials for this course.
+
+Second, inside of **mgt_585**, you will create a folder to host assignments.
+You can name that folder **assignments**.
+Inside the **assignments** folder, you can create a folder for topic assignments named: **topics**.
+
+Third, inside of the **topics** folder, you will create folders for each assignment.
+You can name the folder for this assignment: **07_elastic_nets**.
+
+Fourth, create two additional folders in **07_elastic_nets** named **scripts**, **data**, and **plots**.
+Store this script in the **scripts** folder and the data for this assignment in the **data** folder.
+
+Fifth, go to the *File* menu in *RStudio*, select *New Project...*, choose *Existing Directory*, go to your */mgt_585/assignments/topics/07_elastic_nets* folder to select it as the top-level directory for this *R Project*.  
+
+# Global Settings
+
+The first code chunk sets the global settings for the remaining code chunks in the document.
+Do *not* change anything in this code chunk.
+
+```{r, setup, include = FALSE}
+## specify echo setting for all code chunks
+knitr::opts_chunk$set(
+  # show code
+  echo = TRUE,
+  # show messages
+  message = FALSE,
+  # show warnings
+  warning = FALSE,
+  # figure dimensions
+  fig.dim = c(10, 6.2)
+)
+```
+
+# Activate Packages
+
+In this code chunk, we load the following packages:
+
+1. [here](https://here.r-lib.org);
+2. [tidyverse](https://www.tidyverse.org);
+3. [skimr](https://docs.ropensci.org/skimr/);
+4. [scales](https://scales.r-lib.org);
+5. [snakecase](https://tazinho.github.io/snakecase/);
+6. [haven](https://haven.tidyverse.org);
+7. [ggthemes](https://jrnold.github.io/ggthemes/);
+8. [tidymodels](https://www.tidymodels.org);
+9. [glmnet](https://glmnet.stanford.edu).
+
+Make sure you installed these packages when you reviewed the analytical lecture.
+
+We will use functions from these packages to examine the data. 
+Do *not* change anything in this code chunk.
+
+```{r, packages}
+## here for project work flow
+library(here)
+
+## tidyverse for data manipulation and plotting;
+## activates multiple packages simultaneously
+library(tidyverse)
+
+## skimr to summarize data
+library(skimr)
+
+## scales for variable scales
+library(scales)
+
+## snakecase for naming conventions
+library(snakecase)
+
+## haven to load data from statistical software
+library(haven)
+
+## ggthemes for plot themes
+library(ggthemes)
+
+## tidymodels for modeling;
+## activates multiple packages simultaneously
+library(tidymodels)
+
+## glmnet for elastic net models
+library(glmnet)
+```
+
+# Task 1: Import Data
+
+We will use the same data as in the analytical lecture: **customer_churn.dta**
+After you import the data, then you will execute other commands on the data.
+
+## Task 1.1
+
+Create an object named **customers_raw** by importing the data file **customer_churn.dta** from the **data** project directory using **read_dta()** and **here()**.
+Apply **glimpse()** to **customers_raw**.
+
+**Question 1.1**: Answer these questions:
+(1) How many *observations* are there in the raw data?
+(2) How many *variables* are there in the raw data?
+
+**Response 1.1**: 
+(1) 7032
+(2) 21
+
+```{r, task_1_1}
+# Create customers_raw object by importing the data file
+customers_raw <- read_dta(here("data", "customer_churn.dta"))
+
+# Apply glimpse to customers_raw
+glimpse(customers_raw)
+```
+
+# Task 2: Clean Data
+
+For this task, you will clean the data.
+
+## Task 2.1
+
+Set the random seed of your computer to **1783** by using **set.seed()**.
+Then, in one chained command, create **customers_work** from **customers_raw** by performing the following operations:
+
+1. pipe **customers_raw** to **slice_sample()** and set **prop** to **0.9**;
+2. change variable names to snake case using **rename_with()** and **to_snake_case()**;
+3. call **mutate()** to perform several additional operations;
+4. use **across()** and **where()** to convert all existing *character* variables plus **senior_citizen** but excluding **customer_id** to *factor* variables; 
+5. recode the levels of **senior_citizen** to **"No"** and **"Yes"** from **"0"** and **"1"**, respectively;
+6. convert the labels of all *factor* variables to title case with **str_to_title** via **across()** and **fct_relabel()**;
+7. recode **"Dsl"** to **"DSL"** in **internet_service**;
+8. recode **"Month-To-Month"** to **"Month-to-Month"** in **contract**;
+9. relevel **online_security:streaming_movies** to **"No Internet Service"**, **"No"**, and **"Yes"** via **across()** and **fct_relevel()**;
+10. relevel **senior_citizen, partner, dependents, phone_service, paperless_billing** to **"No"** and **"Yes"** via **across()** and **fct_relevel()**;
+11. relevel **multiple_lines** to **"No Phone Service"**, **"No"**, and **"Yes"** via **fct_relevel()**;
+12. relevel **internet_service** to **"No"**, **"DSL"**, and **"Fiber Optic"** via **fct_relevel()**;
+13. relevel **contract** to **"Month-to-Month"**, **"One Year"**, and **"Two Year"** via **fct_relevel()**;
+14. relevel **gender** to **"Female"** and **"Male"** via **fct_relevel()**;
+15. relevel **payment_method** to **"Mailed Check"**, **"Electronic Check"**, **"Bank Transfer (Automatic)"**, and **"Credit Card (Automatic)"** via **fct_relevel()**;
+16. relevel **churn** to **"Yes"** and **"No"** via **fct_relevel()**.
+
+Examine **customers_work** with **glimpse()**.
+
+**Question 2.1**: How many many factor variables are there in the *working* data?
+
+**Response 2.1**: 18
+
+```{r, task_2_1}
+# Set the random seed
+set.seed(1783)
+
+# Transform customers_raw into customers_work
+customers_work <- customers_raw %>%
+  slice_sample(prop = 0.9) %>%
+  rename_with(.fn = to_snake_case) %>%
+  mutate(
+    across(
+      .cols = c(where(is.character)),
+      .fns = as.factor
+    ),
+    senior_citizen = factor(senior_citizen, levels = c("0", "1"), labels = c("No", "Yes")),
+    across(
+      .cols = where(is.factor) & !customer_id,
+      .fns = ~fct_relabel(.x, str_to_title)
+    ),
+    internet_service = fct_recode(internet_service, "DSL" = "Dsl"),
+    contract = fct_recode(contract, "Month-to-Month" = "Month-To-Month"),
+    across(
+      .cols = online_security:streaming_movies,
+      .fns = ~fct_relevel(.x, "No Internet Service", "No", "Yes")
+    ),
+    across(
+      .cols = c(senior_citizen, partner, dependents, phone_service, paperless_billing),
+      .fns = ~fct_relevel(.x, "No", "Yes")
+    ),
+    multiple_lines = fct_relevel(multiple_lines, "No Phone Service", "No", "Yes"),
+    internet_service = fct_relevel(internet_service, "No", "DSL", "Fiber Optic"),
+    contract = fct_relevel(contract, "Month-to-Month", "One Year", "Two Year"),
+    gender = fct_relevel(gender, "Female", "Male"),
+    payment_method = fct_relevel(payment_method, "Mailed Check", "Electronic Check", "Bank Transfer (Automatic)", "Credit Card (Automatic)"),
+    churn = fct_relevel(churn, "Yes", "No")
+  )
+
+# Examine customers_work with glimpse
+glimpse(customers_work)
+```
+
+# Task 3: Examine Data
+
+For this task, you will examine the data.
+
+## Task 3.1
+
+Perform two computations.
+First, pipe **customers_work** into **count()** and count values of **churn**.
+Pipe the result into **mutate()** and compute the *proportion* of each **churn** value.
+
+Second, pipe **customers_work** into **select()** and exclude **customer_id**.
+Pipe the result to **skim()** to view a summary of the variables.
+View the output to respond to questions.
+
+**Question 3.1**: Answer these questions:
+(1) What *proportion* of customers churned?
+(2) What is the *median* value of *monthly charges* for customers who churned?
+(3) How many customers are *senior citizens* who churned?
+
+**Response 3.1**: 
+(1) .264 or 26.4%
+(2) 70.4
+(3) 440
+
+```{r, task_3_1}
+churn_counts <- customers_work %>%
+  count(churn) %>%
+  mutate(proportion = n / sum(n))
+
+# View the result
+churn_counts
+
+# Exclude customer_id and view the summary
+customers_summary <- customers_work %>%
+  select(-customer_id) %>%
+  skim()
+
+# View the result
+customers_summary
+
+```
+
+## Task 3.2
+
+Call **ggplot()**.
+Set **customers_work** as the *data* input and map **paperless_billing** to the *x-axis*, **monthly_charges** to the *y-axis*, and **churn** to the **fill**.
+Add a **geom_boxplot()** layer.
+Adjust the *y-axis* with **scale_y_continuous()** and set the **limits** to **c(15, 120)**, **n.breaks** to **6**, and the **labels** to **label_dollar()**.
+Adjust the *fille* with **scale_fill_brewer()** and set the **palette** to **"Dark2"**.
+Adjust titles for the *x* and *y* axes to **"Paperless Billing"** and **"Monthly Charges"** using **labs()**.
+Set the *theme* to **theme_clean()**.
+Update the theme with **theme()** by *moving* the legend to the *bottom*.
+
+**Question 3.2**: Answer these questions:
+(1) For those customers who did have *paperless billing*, is the *median* *monthly charge* greater for customers who *did churn* or *did not churn*?
+(2) For those customers who did *not* have *paperless billing*, is the *median* *monthly charge* greater for customers who *did churn* or *did not churn*?
+
+**Response 3.2**: 
+(1) The greater for those who did churn.
+(2) The greater for those who did churn.
+
+```{r, task_3_2}
+# Create the plot
+ggplot(customers_work, aes(x = paperless_billing, y = monthly_charges, fill = churn)) +
+  geom_boxplot() +
+  scale_y_continuous(limits = c(15, 120), n.breaks = 6, labels = label_dollar()) +
+  scale_fill_brewer(palette = "Dark2") +
+  labs(x = "Paperless Billing", y = "Monthly Charges") +
+  theme(legend.position = "bottom")
+```
+
+# Task 4: Split Data
+
+For this task, you will split the data for training and testing.
+
+## Task 4.1
+
+Perform these operations.
+
+First, set the random seed of your computer to **1905** using **set.seed()**.
+
+Second, create **customers_split** using **initial_split()**.
+Set the *data* input to **customers_work**, the **prop** input to **0.75**, and the **strata** input to **churn**.
+Print **customers_split**.
+
+Third, create **customers_train** by applying **training()** to **customers_split**.
+Create **customers_test** by applying **testing()** to **customers_split**.
+Calculate the proportion of each churn value for both **customers_train** and **customers_test** by piping them to **count()** and calculating the proportions with **mutate()**.
+
+**Question 4.1**: Answer these questions:
+(1) How many observations are there in the *training* data?
+(2) How many observations are there in the *testing* data?
+(3) Do the proportion of customers who churned *match* in the *training* and *testing* data?
+
+**Response 4.1**: 
+(1) 4746
+(2) 1582
+(3) Yes - 26.4% churned, 73.6% did not churn.
+
+```{r, task_4_1}
+set.seed(1905)
+
+customers_split <- initial_split(customers_work, prop = 0.75, strata = churn)
+
+customers_split
+
+customers_train <- training(customers_split)
+customers_test <- testing(customers_split)
+
+# Calculate the proportion of each churn value for customers_train
+customers_train %>%
+  count(churn) %>%
+  mutate(proportion = n / sum(n)) %>%
+  print()
+
+# Calculate the proportion of each churn value for customers_test
+customers_test %>%
+  count(churn) %>%
+  mutate(proportion = n / sum(n)) %>%
+  print()
+```
+
+## Task 4.2
+
+Set the random seed of your computer to **1915** using **set.seed()**.
+Then, create **customers_train_folds** with **vfold_cv()**.
+Set **customers_train** as the *data* input, set **v** to **4**, set **repeats** to **3**, and set **strata** to **churn**.
+Print **customers_train_folds**.
+
+**Question 4.2**: Answer these questions:
+(1) How many observations are there in the *first* *analysis* set?
+(2) How many observations are there in the *first* *assessment* set?
+
+**Response 4.2**: 
+(1) 3559
+(2) 1187
+
+```{r, task_4_2}
+# Set the seed for reproducibility
+set.seed(1915)
+
+# Perform the initial split (assuming it's not already done)
+customers_split <- initial_split(customers_work, prop = 0.75, strata = churn)
+
+# Extract the training set
+customers_train <- training(customers_split)
+
+# Create the cross-validation folds
+customers_train_folds <- vfold_cv(customers_train, v = 4, repeats = 3, strata = churn)
+
+# Print the cross-validation folds
+print(customers_train_folds)
+
+```
+
+# Task 5: Model Recipe
+
+For this task, you will create a model recipe.
+
+## Task 5.1
+
+First, create a model recipe named **customers_recipe**.
+Call **recipe()** and set the *formula* input to **churn ~ .** and the *data* input to **customers_train**.
+Pipe the result to **step_rm()** to remove **customer_id**.
+Pipe the result to **step_nzv()** to remove any predictors with low variance.
+Pipe the result to **step_normalize()** to standardize any *numeric* predictors.
+Pipe the result to **step_dummy()** to create dummy coded variables for any *nominal* predictors.
+Pipe the result to **step_interact()** to create these interactions: **starts_with("gender"):total_charges** and **starts_with("paperless_billing"):starts_with("tech_support")**.
+
+Second, pipe **customers_recipe** to **prep()**.
+Pipe the result to **bake()** with **new_data** set to **NULL**.
+Pipe the result to **print()** with **width** set to **Inf**.
+
+**Question 5.1**: Answer these questions:
+(1) How many *variables* are there in the *baked* data?
+(2) How many *interaction variables* are there in the *baked* data?
+
+**Response 5.1**: 
+(1) 34
+(2) 2
+
+```{r, task_5_1}
+# Perform the initial split
+customers_split <- initial_split(customers_work, prop = 0.75, strata = churn)
+
+# Extract the training set
+customers_train <- training(customers_split)
+
+# Create the model recipe
+customers_recipe <- recipe(churn ~ ., data = customers_train) %>%
+  step_rm(customer_id) %>%
+  step_nzv(all_predictors()) %>%
+  step_normalize(all_numeric_predictors()) %>%
+  step_dummy(all_nominal_predictors(), -all_outcomes()) %>%
+  step_interact(terms = ~ starts_with("gender"):total_charges + 
+                     starts_with("paperless_billing"):starts_with("tech_support"))
+
+# Prepare the recipe and print the result
+customers_recipe %>%
+  prep() %>%
+  bake(new_data = NULL) %>%
+  print(width = Inf)
+
+```
+
+# Task 6: Train Models
+
+For this task, you will train logistic regression and elastic net models.
+
+## Task 6.1
+
+Perform these operations.
+
+First, create a metrics function named **class_metrics**.
+Call **metric_set()** and list the following metrics: **sensitivity**, **specificity**, **ppv**, **npv**, **accuracy**, **j_index**, **bal_accuracy**, **mcc**, **f_meas**, **roc_auc**, and **pr_auc**.
+
+Second, create a workflow object named **log_reg_wflow**.
+Pipe **workflow()** to **add_model()**.
+In **add_model()**, call **logistic_reg()** and pipe it to **set_engine("glm")**.
+Pipe the result of **add_model()** to **add_recipe()**.
+In **add_recipe()**, specify **customers_recipe** as the input.
+
+Third, create an object named **log_reg_fit_folds**.
+Pipe **log_reg_wflow** to **fit_resamples()**.
+In **fit_resamples()**, set **resamples** to **customers_train_folds** and the **metrics** to **class_metrics**.
+
+Fourth, call **collect_metrics()** on **log_reg_fit_folds**.
+
+**Question 6.1**: Answer three questions:
+(1) What is the average **roc_auc** across the folds for these logistic regression models?
+(2) What is the average **bal_accuracy** across the folds for these logistic regression models?
+
+**Response 6.1**: 
+(1) .850
+(2) .731
+
+```{r, task_6_1}
+class_metrics <- metric_set(sensitivity, specificity, ppv, npv, accuracy, j_index, bal_accuracy, mcc, f_meas, roc_auc, pr_auc)
+
+log_reg_wflow <- workflow() %>%
+  add_model(logistic_reg() %>% set_engine("glm")) %>%
+  add_recipe(customers_recipe)
+
+log_reg_fit_folds <- log_reg_wflow %>%
+  fit_resamples(resamples = customers_train_folds, metrics = class_metrics)
+
+log_reg_fit_folds %>%
+  collect_metrics()
+```
+
+## Task 6.2
+
+Perform these operations.
+
+First, create an object named **log_reg_fit**.
+Pipe **log_reg_wflow** to **fit()** and set **customers_train** as the input.
+
+Second, pipe **log_reg_fit** to **extract_fit_parsnip()**.
+Pipe the result to **tidy()**.
+Pipe the result to **arrange()** and arrange the rows in *descending* order by **estimate**.
+Pipe the result to **print()** and set **n** to **Inf**.
+
+**Question 6.2**: Answer these questions:
+(1) What is the regression coefficient for **monthly_charges**?
+(2) What is the regression coefficient for **phone_service_Yes**?
+
+**Response 6.2**: 
+(1) 1.02
+(2) -.400
+
+```{r, task_6_2}
+log_reg_fit <- log_reg_wflow %>%
+  fit(data = customers_train)
+
+log_reg_fit %>%
+  extract_fit_parsnip() %>%
+  tidy() %>%
+  arrange(desc(estimate)) %>%
+  print(n = Inf)
+```
+
+## Task 6.3
+
+Perform these operations.
+
+First, create a model specification object named **elastic_net_spec**.
+Call **logistic_reg()** and set **penalty** and **mixture** to **tune()**.
+Pipe the result to **set_engine("glmnet")**.
+
+Second, create a grid object named **elastic_net_grid**.
+Pipe **elastic_net_spec** to **extract_parameter_set_dials()**.
+Pipe the result to **grid_regular()** with **levels** set to **10**.
+
+Third, create a workflow object named **elastic_net_wflow**.
+Pipe **workflow()** to **add_model()** and specify **elastic_net_spec** as the input.
+Pipe the result of **add_model()** to **add_recipe()**.
+In **add_recipe()**, specify **customers_recipe** as the input.
+
+Fourth, create an object named **elastic_net_tune**.
+Pipe **elastic_net_wflow** to **tune_grid()**.
+In **tune_grid()**, set **resamples** to **customers_train_folds**, the **grid** to **elastic_net_grid**, and the **metrics** to **class_metrics**.
+
+Fifth, call **autoplot()** and set **elastic_net_tune** as the *first* input and **c("f_meas", "roc_auc")** as the **metric** input.
+Update the theme with **theme()** and move the *legend* to the *top* of the plot.
+
+Sixth, call **collect_metrics()** on **elastic_net_tune**.
+Pipe the result to **print()** with **n** set to **33** and **width** set to **Inf**.
+
+Seventh, call **show_best()**.
+Set **elastic_net_tune** as the *first* input and **"roc_auc"** as the **metric** input.
+
+**Question 6.3**: Answer these questions:
+(1) Examining the plot, do relatively *smaller* (e.g., less than *1e-08*) or *larger* (e.g., greater than *1e-02*) values of *regularization* have higher *f-measure* scores?
+(2) What *penalty* and *mixture* values are the best based on average **roc_auc**?
+
+**Response 6.3**: 
+(1) Smaller values of regularization (less than 1e-08) tend to have higher f-measure scores.
+(2) Penalty = 0.0000000001 and mixture = 0.894.
+
+```{r, task_6_3}
+elastic_net_spec <- logistic_reg(penalty = tune(), mixture = tune()) %>%
+  set_engine("glmnet")
+
+elastic_net_grid <- elastic_net_spec %>%
+  extract_parameter_set_dials() %>%
+  grid_regular(levels = 10)
+
+elastic_net_wflow <- workflow() %>%
+  add_model(elastic_net_spec) %>%
+  add_recipe(customers_recipe)
+
+elastic_net_tune <- elastic_net_wflow %>%
+  tune_grid(
+    resamples = customers_train_folds,
+    grid = elastic_net_grid,
+    metrics = class_metrics
+  )
+
+autoplot(elastic_net_tune, metric = c("f_meas", "roc_auc")) +
+  theme(legend.position = "top")
+
+elastic_net_tune %>%
+  collect_metrics() %>%
+  print(n = 33, width = Inf)
+
+show_best(elastic_net_tune, metric = "roc_auc")
+```
+
+## Task 6.4
+
+Perform these operations.
+
+First, create a workflow object named **elastic_net_wflow_final**.
+Pipe **elastic_net_wflow** to **finalize_workflow()**.
+Inside of **finalize_workflow()**, call **select_best()** and set **elastic_net_tune** as the *first* input and **"roc_auc"** as the **metric** input.
+
+Second, create an object named **elastic_net_fit**.
+Pipe **elastic_net_wflow_final** to **fit()** and set **customers_train** as the input.
+
+Second, pipe **elastic_net_fit** to **extract_fit_parsnip()**.
+Pipe the result to **tidy()**.
+Pipe the result to **arrange()** and arrange the rows in *descending* order by **estimate**.
+Pipe the result to **print()** and set **n** to **Inf**.
+
+**Question 6.4**: Answer these questions:
+(1) What is the regression coefficient for **tech_support_Yes**?
+(2) What is the regression coefficient for **streaming_movies_Yes**?
+
+**Response 6.4**: 
+(1) .0464
+(2) -.213
+
+```{r, task_6_4}
+elastic_net_wflow_final <- elastic_net_wflow %>%
+  finalize_workflow(select_best(elastic_net_tune, metric = "roc_auc"))
+
+elastic_net_fit <- elastic_net_wflow_final %>%
+  fit(customers_train)
+
+elastic_net_fit %>%
+  extract_fit_parsnip() %>%
+  tidy() %>%
+  arrange(desc(estimate)) %>%
+  print(n = Inf)
+```
+
+# Task 7: Test Models
+
+For this task, you will evaluate estimated models on the testing data.
+
+## Task 7.1
+
+Perform these operations.
+
+First, create a data table object named **log_reg_pred**.
+Pipe **customers_test** to **select()** and select **churn**.
+Pipe the result to **bind_cols()**.
+In **bind_cols()**, call **predict()** and set **log_reg_fit** as the *model* input, **customers_test** as the **new_data** input, and **"prob"** as the **type** input.
+
+Second, create a data table object named **elastic_net_pred**.
+Pipe **customers_test** to **select()** and select **churn**.
+Pipe the result to **bind_cols()**.
+In **bind_cols()**, call **predict()** and set **elastic_net_fit** as the *model* input, **customers_test** as the **new_data** input, and **"prob"** as the **type** input.
+
+Third, call **map_dfr()**.
+Inside of **map_dfr()**, as as first input, create a list with **list()** consisting of **log_reg = log_reg_pred** and **elastic_net = elastic_net_pred**.
+Inside of **map_dfr()**, as as second input, call **roc_auc()** with **data** set **.x**, **truth** set to **churn**, and the *predicted* values set to **.pred_Yes**.
+Set the **.id** input of **map_dfr()** to **"model"**.
+
+**Question 7.1**: Answer these questions:
+(1) What is the **roc_auc** of the *elastic net* model?
+(2) Does the *elastic net* model perform better than the *logistic regression* model with respect to **roc_auc**?
+
+**Response 7.1**: 
+(1) .859
+(2) The logistic regression model performs slightly better at.860
+
+```{r, task_7_1}
+# Create log_reg_pred
+log_reg_pred <- customers_test %>%
+  select(churn) %>%
+  bind_cols(
+    predict(log_reg_fit, customers_test, type = "prob")
+  )
+
+# Create elastic_net_pred
+elastic_net_pred <- customers_test %>%
+  select(churn) %>%
+  bind_cols(
+    predict(elastic_net_fit, customers_test, type = "prob")
+  )
+
+# Calculate ROC AUC for both models
+roc_auc_results <- map_dfr(
+  list(log_reg = log_reg_pred, elastic_net = elastic_net_pred),
+  ~roc_auc(data = .x, truth = churn, .pred_Yes)
+)
+
+roc_auc_results
+```
+
+## Task 7.2
+
+Perform these operations.
+
+First, create a data table named **log_reg_roc**.
+Call **roc_curve()** and set **log_reg_pred** as the *data* input, **churn** as the **truth** input, and **.pred_Yes** as the *predicted* values.
+
+Second, create a data table named **elastic_net_roc**.
+Call **roc_curve()** and set **elastic_net_pred** as the *data* input, **churn** as the **truth** input, and **.pred_Yes** as the *predicted* values.
+
+Third, create a plot named **roc_plot**.
+Call **ggplot()**.
+Add a **geom_abline()** layer and set to **linetype** to **2** and **color** to **"gray"**.
+Add a first **geom_path()** layer and set **log_reg_roc** as the *data* input, map **1 - specificity** to the *x-axis*, **sensitivity** to the *y-axis*, and **"Log. Reg."** to **color**, and set **linewidth** to **1.5**.
+Add a second **geom_path()** layer and set **elastic_net_roc** as the *data* input, map **1 - specificity** to the *x-axis*, **sensitivity** to the *y-axis*, and **"Elastic Net"** to **color**, set **linewidth** to **1.5**, and set **alpha** to **0.6**.
+Adjust the colors with **scale_color_manual()** and set **values** to **c("Log. Reg." = "black", "Elastic Net" = "red")**.
+Adjust the *x*, *y*, and *color* titles with **labs()** by setting them to **"False Positive Rate"**, **"True Positive Rate"**, and **"Model"**.
+Change the theme to **theme_hc()**.
+Move the *legend* to the *bottom* with **theme()**.
+
+View the plot.
+
+**Question 7.2**: Do the *ROC* curves for the two models overlap?
+
+**Response 7.2**: Yes
+
+```{r, task_7_2}
+# Create log_reg_roc
+log_reg_roc <- roc_curve(log_reg_pred, truth = churn, .pred_Yes)
+
+# Create elastic_net_roc
+elastic_net_roc <- roc_curve(elastic_net_pred, truth = churn, .pred_Yes)
+
+# Create ROC plot
+roc_plot <- ggplot() +
+  geom_abline(linetype = 2, color = "gray") +
+  geom_path(data = log_reg_roc, aes(x = 1 - specificity, y = sensitivity, color = "Log. Reg."), size = 1.5) +
+  geom_path(data = elastic_net_roc, aes(x = 1 - specificity, y = sensitivity, color = "Elastic Net"), size = 1.5, alpha = 0.6) +
+  scale_color_manual(values = c("Log. Reg." = "black", "Elastic Net" = "red")) +
+  labs(x = "False Positive Rate", y = "True Positive Rate", color = "Model") +
+  theme_hc() +
+  theme(legend.position = "bottom")
+
+# View the plot
+print(roc_plot)
+
+```
+
+# Task 8: Save Objects
+
+For this task, you will save the plots and the working data.
+First, save **customers_work** as a *Stata* file using **write_dta()** and **here()** to navigate to the **"data"** folder of the project directory and create a file named **"customer_churn_work.dta"**.
+
+Second, save the **roc_plot** object as file named **"roc.png"** in the **"plots"** folder using **ggsave()** and **here()**.
+Use a width of *8.1 inches* and a height of *5 inches*.
+
+```{r, task_8}
+write_dta(
+  ## data
+  customers_work,
+  ## use here() to export data to project directory
+  here(
+    # folder
+    "data", 
+    # file
+    "customer_churn_work.dta"
+  )
+)
+
+### save plot
+## call function
+ggsave(
+  ## file path
+  here(
+    # folder
+    "plots",
+    # file
+    "roc.png"
+  ),
+  ## plot object
+  plot = roc_plot,
+  ## units
+  units = "in",
+  ## width
+  width = 8.1,
+  ## height
+  height = 5
+)
+```
+
+# Task 9: Conceptual Questions
+
+For your last task, you will respond to conceptual questions based on the conceptual lectures for this week.
+
+**Question 9.1**: What is the difference between *training* data and *testing* data?
+
+**Response 9.1**: 
+Training data is used to train a model, meaning the model learns from this data. Testing data, on the other hand, is used to evaluate the performance of the trained model. It helps assess how well the model generalizes to new, unseen data.
+
+**Question 9.2**: What is the difference between the *LASSO* and *ridge* regression estimation minimization criteria?
+
+**Response 9.2**: 
+The LASSO (Least Absolute Shrinkage and Selection Operator) and ridge regression are both regularization techniques used to prevent overfitting in linear regression models. The main difference lies in the penalty term added to the cost function. LASSO uses the sum of the absolute values of the coefficients as the penalty term, which can lead to some coefficients being exactly zero, effectively performing variable selection. Ridge regression uses the sum of the squared coefficients as the penalty term, which tends to shrink coefficients towards zero without necessarily setting them to zero.
+
+**Question 9.3**: What is a *tuning* parameter of an algorithm?
+
+**Response 9.3**: 
+A tuning parameter is a parameter in a machine learning algorithm that is not directly learned from the data. Instead, it is set prior to the commencement of the learning process and affects the behavior and performance of the algorithm. Tuning parameters are typically set through a process called hyperparameter tuning, where different values are tried to find the optimal setting for the algorithm.

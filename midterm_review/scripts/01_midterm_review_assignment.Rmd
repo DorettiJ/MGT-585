@@ -1,0 +1,878 @@
+---
+title: "Assignment: Midterm Review"
+author: "Jon Doretti"
+date: "`r lubridate::now(tzone = 'America/Chicago')`"
+output:
+  html_document:
+    toc: TRUE
+    toc_depth: 2
+    toc_float: TRUE
+    theme: yeti
+    highlight: zenburn
+    df_print: paged
+    code_folding: show
+editor_options:
+  chunk_output_type: console
+---
+
+# Instructions
+
+This assignment reviews the *Data Queries*, *Variable Relations*, *Clustering Units*, and *Dashboards* content. 
+You will use the *R Markdown* scripts you completed for assignments on those topics to complete this review assignment. 
+You will *copy and paste* relevant code from those files and update code to answer the questions in this assignment. 
+You will respond to questions in each section after executing relevant code to answer a question. 
+You will submit this assignment to its *Submissions* folder on *D2L*.
+You will submit *two* files:
+
+1. this completed *R Markdown* script, and 
+2. an *HTML* rendered version of it to *D2L*.
+
+To start:
+
+First, create a folder on your computer to save all relevant files for this course. 
+If you did not do so already, you will want to create a folder named **mgt_585** that contains all of the materials for this course.
+
+Second, inside of **mgt_585**, you will create a folder to host assignments.
+You can name that folder **assignments**.
+Inside the **assignments** folder, you can create a folder for topic assignments named: **reviews**.
+
+Third, inside of the **reviews** folder, you will create folders for each assignment.
+You can name the folder for this assignment: **01_midterm_review**.
+
+Fourth, create two additional folders in **01_midterm_review** named **scripts**, **data**, and **plots**.
+Store this script in the **scripts** folder and the data for this assignment in the **data** folder.
+
+Fifth, go to the *File* menu in *RStudio*, select *New Project...*, choose *Existing Directory*, go to your */mgt_585/assignments/reviews/01_midterm_review* folder to select it as the top-level directory for this *R Project*.  
+
+# Global Settings
+
+The first code chunk sets the global settings for the remaining code chunks in the document.
+Do *not* change anything in this code chunk.
+
+```{r, setup, include = FALSE}
+## specify echo setting for all code chunks
+knitr::opts_chunk$set(
+  # show code
+  echo = TRUE,
+  # show messages
+  message = FALSE,
+  # show warnings
+  warning = FALSE,
+  # figure dimensions
+  fig.dim = c(10, 6.2)
+)
+```
+
+# Task 1: Activate Packages
+
+Unlike previous assignments, you will specify the packages to load for this *Midterm Review*.
+Make sure to include comments about the packages.
+Activate the following packages:
+
+1. [here](https://here.r-lib.org);
+2. [tidyverse](https://www.tidyverse.org);
+3. [skimr](https://docs.ropensci.org/skimr/);
+4. [scales](https://scales.r-lib.org).
+5. [snakecase](https://tazinho.github.io/snakecase/);
+6. [rstatix](https://rpkgs.datanovia.com/rstatix/);
+7. [cluster](https://cran.r-project.org/web/packages/cluster/cluster.pdf);
+8. [factoextra](https://rpkgs.datanovia.com/factoextra/index.html);
+9. [infer](https://infer.netlify.app/index.html);
+10. [corrr](https://corrr.tidymodels.org);
+11. [rstatix](https://rpkgs.datanovia.com/rstatix/).
+
+You will use functions from these packages to import the data, examine the data, summarize the data, calculate variable relations, and visualize the data. 
+
+```{r, task_1}
+# Load required packages
+
+# 'here' package simplifies file referencing by using a project-oriented workflow
+library(here)
+
+# 'tidyverse' is a collection of packages for data manipulation, exploration, and visualization
+library(tidyverse)
+
+# 'skimr' provides a compact and flexible summary of data
+library(skimr)
+
+# 'scales' provides tools for automatically determining breaks and labels for axes and legends
+library(scales)
+
+# 'snakecase' converts strings to snake_case, useful for standardizing column names
+library(snakecase)
+
+# 'rstatix' provides a simple and intuitive framework for statistical tests
+library(rstatix)
+
+# 'cluster' contains methods for cluster analysis
+library(cluster)
+
+# 'factoextra' provides tools for extracting and visualizing the output of multivariate data analyses
+library(factoextra)
+
+# 'infer' facilitates tidy statistical inference
+library(infer)
+
+# 'corrr' is a package for working with correlation matrices in R
+library(corrr)
+
+```
+
+# Task 2: Import and Clean Data
+
+You will examine data on company sales of child car seats.
+Each observation represents a community where the numeric columns represent average values for that community and the character columns represent a characteristic of that community.
+For this task, you will import the data from your project directory and clean it for subsequent analytical work.
+
+## Task 2.1
+
+Use the appropriate functions to navigate to the *data* folder of your project directory and import **car_seats.rds**. 
+Import the data as the object **car_seats_raw**.
+Apply **glimpse()** to **car_seats_raw**.
+
+You can copy what you did for **Task 1.1** in your **variable_relations_assignment.Rmd** script as a basis for the code for this task.
+
+**Question 2.1**: Answer these questions:
+(1) How many total *observations* are there in the data?
+(2) How many total *variables* are there in the data?
+(3) Do the variable names follow the *snake case* naming convention?
+
+**Response 2.1**: 
+(1) 400
+(2) 11
+(3) 0 (all capitalize the first letter) 
+
+```{r, task_2_1}
+
+# Define the path to the car_seats.rds file using the 'here' package
+data_path <- here("data", "car_seats.rds")
+
+# Import the data as the object car_seats_raw
+car_seats_raw <- readRDS(data_path)
+
+# Apply glimpse() to car_seats_raw
+glimpse(car_seats_raw)
+
+```
+
+## Task 2.2
+
+Bind the name **car_seats_work** to an object created from **car_seats_raw** by performing the following cleaning operations:
+
+1. pipe **car_seats_raw** to **rename_with()** and convert variable names to snake case with **to_snake_case**;
+2. pipe the result to **mutate()** and first use **across()** with **as_factor** to convert *character* variables **c(shelve_loc, urban, us)** to *factor* variables;
+3. inside the same **mutate()**, apply **fct_relevel()** on **shelve_loc** to *relevel* its factor levels to this order: **"Bad", "Medium", "Good"**;
+4. inside the same **mutate()**, use **across()** to set **.cols** to **c(urban, us)** and **.fns** to **~ fct_relevel(.x, "No", "Yes")** (note: you can write the **.fns** argument on one line like in this instruction *or* across multiple lines with comments for the inputs).
+
+You can copy what you did for **Task 2.1** in your **variable_relations_assignment.Rmd** script as a basis for the code for this task.
+Be aware that you will need to make several deletions and updates to that code to satisfy these instructions.
+
+**Question 2.2**: Answer these questions:
+(1) How many variable names use an underscore?
+(2) How many *factor* variables are there in the *working* data?
+
+**Response 2.2**: 
+(1) 2
+(2) 3
+
+```{r, task_2_2}
+# Clean the data and bind it to car_seats_work
+car_seats_work <- car_seats_raw %>%
+  # Convert variable names to snake case
+  rename_with(to_snake_case) %>%
+  # Convert character variables to factor and relevel factors
+  mutate(
+    across(c(shelve_loc, urban, us), as_factor), # Convert specified columns to factors
+    shelve_loc = fct_relevel(shelve_loc, "Bad", "Medium", "Good"), # Relevel shelve_loc
+    across(c(urban, us), ~ fct_relevel(.x, "No", "Yes")) # Relevel urban and us
+  )
+
+# View the cleaned data
+glimpse(car_seats_work)
+```
+
+# Task 3: Query Data
+
+You will now query the data.
+
+## Task 3.1
+
+Perform the following two slices.
+First, pipe **car_seats_work** to **slice_max()** to slice for the *three* maximum **sales** values.
+Second, pipe **car_seats_work** to **slice_min()** to slice for the minimum *0.03* **price** values with *no* ties.
+
+You can copy what you did for **Task 3.1** in your **data_queries_assignment.Rmd** script as a basis for the code for this task.
+
+**Question 3.1**: Answer these questions:
+(1) What is the maximum average *sales* (in thousands of dollars) for a community?
+(2) What is the minimum average *price* for a community?
+
+**Response 3.1**: 
+(1) 16,300 (16.3 in table)
+(2) 24
+
+```{r, task_3_1}
+# First slice: slice for the three maximum sales values
+car_seats_max_sales <- car_seats_work %>%
+  slice_max(sales, n = 3)
+
+# Second slice: slice for the minimum 0.03 price values with no ties
+car_seats_min_price <- car_seats_work %>%
+  slice_min(price, prop = 0.03, with_ties = FALSE)
+
+# View the sliced data
+car_seats_max_sales
+car_seats_min_price
+```
+
+## Task 3.2
+
+Arrange the rows of **car_seats_work** by *descending* **population** and *ascending* **comp_price**.
+
+You can copy what you did for **Task 3.2** in your **data_queries_assignment.Rmd** script as a basis for the code for this task.
+
+**Question 3.2**: Answer these questions:
+(1) What is the highest *population* (in thousands) value?
+(2) What is the average *competitor's price* (**comp_price**) value of the *third* listed community?
+
+**Response 3.2**: 
+(1) 509,000 (509 in table)
+(2) 127
+
+```{r, task_3_2}
+# Arrange the rows of car_seats_work
+car_seats_arranged <- car_seats_work %>%
+  arrange(desc(population), comp_price)
+
+# View the arranged data
+glimpse(car_seats_arranged)
+```
+
+## Task 3.3
+
+Perform the following query.
+First, pipe **car_seats_work** to **select()**.
+Select the following variables: **shelve_loc**, **price**, **age**, and **advertising**.
+
+Second, pipe the result to **filter()**.
+Filter for the following conditions:
+
+1. filter for **shelve_loc %in% c("Bad", "Good")**;
+2. *price* greater than `$130`.
+
+You can copy what you did for **Task 3.3** in your **data_queries_assignment.Rmd** script as a basis for the code for this task.
+
+**Question 3.3**: Answer these questions:
+(1) How many clients meet these conditions?
+(2) What is the average *advertising* (in thousands of dollars) value for the *first* listed community? 
+
+**Response 3.3**: 
+(1) 48
+(2) 13,000 (13 in table)
+
+```{r, task_3_3}
+# Perform the query
+car_seats_query <- car_seats_work %>%
+  # Select the specified variables
+  select(shelve_loc, price, age, advertising) %>%
+  # Filter for the specified conditions
+  filter(shelve_loc %in% c("Bad", "Good"), price > 130)
+
+# View the result
+glimpse(car_seats_query)
+```
+
+# Task 4: Summarize Variables
+
+You will now compute summaries of the data.
+
+## Task 4.1
+
+Perform the following summary computations.
+First, pipe **car_seats_work** to **count()**.
+Count by **urban** and **us**.
+Second, pipe the result to **group_by()**.
+Group by **urban**.
+Third, pipe the result to **mutate()**.
+Calculate **prop** as **n / sum(n)**.
+
+You can copy what you did for **Task 4.1** in your **data_queries_assignment.Rmd** script as a basis for the code for this task.
+
+**Question 4.1**: Answer these questions:
+(1) How many communities are *non-urban* but from the *US*?
+(2) What proportion of *urban* communities are from the *US*
+
+**Response 4.1**: 
+(1) 72
+(2) 0.6595745
+
+```{r, task_4_1}
+# Perform the summary computations
+car_seats_summary <- car_seats_work %>%
+  # Count by urban and us
+  count(urban, us) %>%
+  # Group by urban
+  group_by(urban) %>%
+  # Calculate prop as n / sum(n)
+  mutate(prop = n / sum(n))
+
+# View the result
+glimpse(car_seats_summary)
+```
+
+## Task 4.2
+
+Perform the following summary computations.
+First, pipe **car_seats_work** to **group_by()**.
+Group by **shelve_loc**.
+Second, pipe the result to **select()**.
+Select **comp_price**, **price**, and **urban**.
+Third, pipe the result to **skim()**.
+
+You can copy what you did for **Task 4.2** in your **data_queries_assignment.Rmd** script as a basis for the code for this task.
+
+**Question 4.2**: Answer these questions:
+(1) Is the average price (**price**) of car seats for the company *greater* or *less* than the competitor's price (**comp_price**) for all shelf locations? 
+(2) How many *non-urban* stores have the car seats in a *medium* shelf location?
+
+**Response 4.2**: 
+(1) The average price of car seats for the company is less than the competitor's price for all shelf locations.
+(2) 68
+
+```{r, task_4_2}
+# Perform the summary computations
+car_seats_summary <- car_seats_work %>%
+  # Group by shelve_loc
+  group_by(shelve_loc) %>%
+  # Select comp_price, price, and urban
+  select(comp_price, price, urban) %>%
+  # Apply skim() to the result
+  skim()
+
+# View the result
+car_seats_summary
+```
+
+# Task 5: Pearson's Correlation Coefficient
+
+For this task, you will perform a *correlation test*.
+
+## Task 5.1
+
+Perform two tasks.
+
+First, calculate the correlation between **population** and **advertising**. 
+Call **car_seats_work** and *select* **population** and **advertising**.
+Pipe the result to **correlate()**.
+
+Second, compute a *correlation test* using **cor_test()**.
+Specify **car_seats_work** as the *data* input and **population** and **advertising** as the continuous variables.
+Bind the name **cor_test_res** to the object.
+Print **cor_test_res** to view the result.
+
+You can copy what you did for **Task 5.1** in your **variable_relations_assignment.Rmd** script as a basis for the code for this task.
+
+**Question 5.1**: Answer these questions:
+(1) What is the correlation value?
+(2) What is the *empirical t-value*?
+
+**Response 5.1**: 
+(1) 0.27
+(2) 5.50
+
+```{r, task_5_1}
+# Calculate the correlation between population and advertising
+correlation <- car_seats_work %>%
+  select(population, advertising) %>%
+  correlate()
+
+# Compute a correlation test
+cor_test_res <- cor_test(car_seats_work, population, advertising)
+
+# Print the correlation test result
+cor_test_res
+```
+
+## Task 5.2
+
+Perform two tasks.
+
+First, calculate the *observed correlation* using the **infer** functions and bind the name, **corr_res**, to it.
+Call **car_seats_work** and pipe it to **specify()** and set the *formula* input to **advertising ~ population**.
+Pipe the result to **calculate()** and set **stat** to **"correlation"**.
+Print **corr_res** to view the result.
+
+Second, produce a visualization using the **infer** functions.
+Call **car_seats_work** and pipe it to **specify()** and set the *formula* input to **advertising ~ population**.
+Pipe the result to **hypothesize()** and set **null** to **"independence"**.
+Pipe the result to **generate()** and set **reps** to **1000** and **type** to **"permute"**.
+Pipe the result to **calculate()** and set **stat** to **"correlation"**.
+Pipe the result to **visualize()**.
+Pipe the result to **shade_p_value()** and set **corr_res** as the observed result and **direction** to **"two-sided"**.
+Pipe the result to **labs()** and set appropriate axes labels.
+
+You can copy what you did for **Task 5.2** in your **variable_relations_assignment.Rmd** script as a basis for the code for this task.
+
+**Question 5.2**: Are there shaded *theoretical* correlation values to the *right* of the *observed* correlation value?
+
+**Response 5.2**: No
+
+```{r, task_5_2}
+# Calculate the observed correlation
+corr_res <- car_seats_work %>%
+  specify(formula = advertising ~ population) %>%
+  calculate(stat = "correlation")
+
+# Print the observed correlation result
+corr_res
+
+# Produce a visualization
+car_seats_work %>%
+  specify(formula = advertising ~ population) %>%
+  hypothesize(null = "independence") %>%
+  generate(reps = 1000, type = "permute") %>%
+  calculate(stat = "correlation") %>%
+  visualize() +
+  shade_p_value(corr_res, direction = "two-sided") +
+  labs(x = "Population", y = "Advertising")
+
+```
+
+## Task 5.3
+
+Perform two tasks.
+
+First, calculate the effect size in this case by raising **corr_res** to **2**.
+
+Second, bind the name, **corr_plot**, to the following object.
+Call **ggplot()** and set **car_seats_work** as the *data* input and map **population** and **advertising** to the **x** and **y** aesthetics, respectively.
+Add a **geom_point()** layer and set **alpha** to **0.3**.
+Add a **geom_smooth()** layer and set **method** to **"lm"**, **formula** to **"y ~ x"**, and **se** to **FALSE**.
+Use **labs()** to update the *x-axis* title to **"Population (in thousands)"** and *y-axis* title to **"Advertising (in thousands)"**.
+Update the *x-axis labels* with **scale_x_continuous** and **breaks** set to **seq(0, 100, 500)**.
+Update the *y-axis labels* with **scale_y_continuous** and **labels** set to **dollar_format()** with **breaks** set to **seq(0, 30, 5)**.
+Use **theme()** to change the *panel background* to **"whitesmoke"** and the *plot background* to **"mintcream"**.
+Print **corr_plot** to view the plot.
+
+You can copy what you did for **Task 5.3** in your **variable_relations_assignment.Rmd** script as a basis for the code for this task.
+
+**Question 5.3**: Answer these questions:
+(1) What is the estimate of *r-squared* in this case?
+(2) Do *population* and *advertising* exhibit a *positive* or *negative* linear relationship?
+
+**Response 5.3**: 
+(1) 0.07057106
+(2) Positive linear relationship
+
+```{r, task_5_3}
+# First task: calculate effect size
+effect_size <- corr_res^2
+
+# Second task: create the ggplot
+corr_plot <- ggplot(data = car_seats_work, aes(x = population, y = advertising)) +
+  geom_point(alpha = 0.3) +
+  geom_smooth(method = "lm", formula = "y ~ x", se = FALSE) +
+  labs(x = "Population (in thousands)", y = "Advertising (in thousands)") +
+  scale_x_continuous(labels = dollar_format(), breaks = seq(0, 100, 5)) +
+  scale_y_continuous(labels = dollar_format(), breaks = seq(0, 30, 5)) +
+  theme(panel.background = element_rect(fill = "whitesmoke"),
+        plot.background = element_rect(fill = "mintcream"))
+
+# Print the effect size and the plot
+effect_size
+corr_plot
+```
+
+# Task 6: Unit Distances
+
+For this task, you will compute *distances between units*.
+
+## Task 6.1
+
+Perform two tasks.
+
+First, create a table named **cs_explore** from **car_seats_work** by:
+
+1. filtering for **us == "Yes"** and **population >= 497**;
+2. selecting for **sales:advertising**.
+
+Print **cs_explore** to view the result.
+
+Second, compute the unit distances with **get_dist()** and name the object **cs_explore_dist**.
+Set **cs_explore** as the *data* input, **"euclidean"** as the *method* input, and *standardize* the variables.
+
+Print **cs_explore_dist**.
+
+You can copy what you did for **Task 3.1** in your **clustering_units_assignment.Rmd** script as a basis for the code for this task.
+
+**Question 6.1**: Answer these questions:
+(1) What is the distance between the *second* and *eighth* unit?
+(2) What is the distance between the *fourth* and *ninth* unit?
+
+**Response 6.1**: 
+(1) 3.146626
+(2) 2.667723
+
+```{r, task_6_1}
+# First task: create table cs_explore
+cs_explore <- car_seats_work %>%
+  filter(us == "Yes" & population >= 497) %>%
+  select(sales:advertising)
+
+# Print cs_explore
+cs_explore
+
+# Second task: compute unit distances
+cs_explore_dist <- get_dist(cs_explore, method = "euclidean", stand = TRUE)
+
+# Print cs_explore_dist
+cs_explore_dist
+```
+
+## Task 6.2
+
+Perform two tasks.
+
+First, create an object named **cs_explore_dist_tib** from **cs_explore_dist**.
+Pipe **cs_explore_dist** to **round()** and round to *two* decimal places.
+Convert the result to a *matrix* with **as.matrix()**.
+Replace the *lower trinagle* with **NA** values.
+Convert the result to a *tibble* with **as_tibble()**.
+Rename **rowname** to **comm_1**.
+Pivot the table long where all columns except for **comm_1** are pivoted and set **names_to** input to **"comm_2"** and **values_to** input to **"dist"**.
+Filter for *non-missing* values of **dist**.
+Convert **comm_1** and **comm_2** to *factor* variables with the combination of **mutate()**, **across()**, and **as_factor()**.
+Print **cs_explore_dist_tib** to view the result.
+
+Second, create a plot named **dist_heat_plot**.
+Call **ggplot()** and set the *data* input to **cs_explore_dist_tib** while mapping **comm_2** to the *x-axis*, **comm_1** to the *y-axis*, and **dist** to **fill**.
+Add a **geom_tile()** layer with **color** set to **"white"**.
+Add a **geom_text()** layer and set **label** to **dist** using **number()** with **accuracy = 0.01**, **size** to **4**, **fontface** to **"bold"**, and **color** to **"#008E00"**.
+Alter the *fill gradient* with **scale_fill_gradient2()** by setting **low** to **"red"**, **mid** to **"white"**, and **high** to **"violet"**, **midpoint** to **2.1**, **limit** to **c(0, 4.2)**, **name** to **"Distance"**, and **na.value** to **"transparent"**.
+Alter the axis labels with **labs()** by setting **x** to **"Community 2"** and **y** to **"Community 1"**.
+Add a title for the plot with **ggtitle()** and set it to **"Euclidean Distance of Communities by\nFour Community Characteristics"**.
+Use **theme()** to change the *panel background* to **"black"** and the *plot background* to **"mintcream"**, move the title to be *centered*, move the *legend* to the *bottom*, and *remove* the *grid lines*.
+Print **dist_heat_plot** to view the plot.
+
+You can copy what you did for **Task 3.2** in your **clustering_units_assignment.Rmd** script as a basis for the code for this task.
+
+**Question 6.2**: Answer these questions:
+(1) Which two communities are *least* distant of this set of communities?
+(2) Which two communities are *most* distant of this set of communities?
+
+**Response 6.2**: 
+(1) community 1 and community 4 with 1.06
+(2) community 5 and community 6 with 4.11
+
+```{r, task_6_2}
+
+# First task: create cs_explore_dist_tib
+cs_explore_dist_tib <- cs_explore_dist %>%
+  round(2) %>%
+  as.matrix() %>%
+  replace_lower_triangle(by = NA) %>%
+  as_tibble() %>%
+  rename(comm_1 = rowname) %>%
+  pivot_longer(cols = -comm_1, names_to = "comm_2", values_to = "dist") %>%
+  filter(!is.na(dist)) %>%
+  mutate(across(c(comm_1, comm_2), as_factor))
+
+# Print cs_explore_dist_tib
+cs_explore_dist_tib
+
+# Second task: create dist_heat_plot
+dist_heat_plot <- ggplot(cs_explore_dist_tib, aes(x = comm_2, y = comm_1, fill = dist)) +
+  geom_tile(color = "white") +
+  geom_text(aes(label = number(dist, accuracy = 0.01)), size = 4, fontface = "bold", color = "#008E00") +
+  scale_fill_gradient2(low = "red", mid = "white", high = "violet", midpoint = 2.1, limit = c(0, 4.2),
+                       name = "Distance", na.value = "transparent") +
+  labs(x = "Community 2", y = "Community 1",
+       title = "Euclidean Distance of Communities by\nFour Community Characteristics") +
+  theme(panel.background = element_rect(fill = "black"),
+        plot.background = element_rect(fill = "mintcream"),
+        plot.title = element_text(hjust = 0.5),
+        legend.position = "bottom",
+        panel.grid = element_blank())
+
+# Print dist_heat_plot
+dist_heat_plot
+
+```
+
+# Task 7: Agglomerative Hierarchical Clustering
+
+For this task, you will perform a *hierarchical cluster analysis*.
+
+## Task 7.1
+
+Perform three tasks.
+
+First, create an object named **cs_num_clust** by piping **car_seats_work** to **select()** and selecting for **sales:advertising**.
+
+Second, compute the unit distances with **get_dist()** and name the object **cs_num_clust_dist**.
+Set **cs_num_clust** as the *data* input, **"euclidean"** as the *method* input, and *standardize* the variables.
+
+Third, create a *heat map* with **fviz_dist()**.
+Set **cs_num_clust_dist** as the *data* input, **order** to **TRUE**, and **show_labels** to **FALSE**.
+
+You can copy what you did for **Task 4.1** in your **clustering_units_assignment.Rmd** script as a basis for the code for this task.
+
+**Question 7.1**: Does the heat map show communities being mostly *close* (*red*) or distant (*blue*) to each other?
+
+**Response 7.1**: Communities are close (red).
+
+```{r, task_7_1}
+# First task
+cs_num_clust <- car_seats_work %>%
+  select(sales:advertising)
+
+# Second task
+cs_num_clust_dist <- get_dist(cs_num_clust, method = "euclidean", stand = TRUE)
+
+# Third task
+fviz_dist(cs_num_clust_dist, show_labels = FALSE, order = TRUE)
+```
+
+## Task 7.2
+
+Perform these tasks.
+
+First, perform a *hierarchical cluster analysis* on **cs_num_clust_dist** using **hclust()** and setting the **method** to **"complete"**.
+Save the results as **hclust_res**.
+
+Second, use **pluck()** to extract the *merge* sequence from **hclust_res** for the first *20* rows.
+
+Third, use **pluck()** to extract the *cluster distances* (**height**) from **hclust_res** for the first *20* rows.
+
+Fourth, create a dendrogram named **hclust_dend_plot** using **fviz_dend()**.
+Set **hclust_res** as the *object* input, *number of clusters* to **6**, and do *not* show the labels.
+Show the plot.
+
+You can copy what you did for **Task 4.2** in your **clustering_units_assignment.Rmd** script as a basis for the code for this task.
+
+**Question 7.2**: Answer these questions:
+(1) What two communities formed the *first* cluster?
+(2) Which community became the *third* member of the *thirteenth* cluster?
+(3) What is the *cluster distance* for the *tenth* merge?
+(4) From the dendrogram, are there six *equally-sized* clusters?
+
+**Response 7.2**:
+(1) -17 and -227
+(2) -307
+(3) 0.209
+(4) There are 6 clusters however they are not equally-sized. Green:Blue has a large ration in blue's favor.
+
+```{r, task_7_2}
+# First task
+hclust_res <- hclust(cs_num_clust_dist, method = "complete")
+
+## summary
+summary(hclust_res)
+
+# Second task
+hclust_res %>% pluck("merge")%>%
+  as_tibble(.name_repair = ~ c("v_1", "v_2")) %>%
+  slice_head(n = 20)
+
+# Third task
+hclust_res %>%
+  pluck("height") %>%
+  as_tibble() %>%
+  slice_head(n = 20)
+
+# Fourth task
+hclust_dend_plot <- fviz_dend(hclust_res, k = 6, show_labels = FALSE)
+hclust_dend_plot
+```
+
+## Task 7.3
+
+Perform these tasks.
+
+First, create **cs_num_clust_res** from **cs_num_clust**.
+Pipe **cs_num_clust** to **mutate()** to cut the dendrogram from **hclust_res** with **cutree()** into **6** clusters naming the new column **hier_clust**.
+Convert **hier_clust** into a *factor* variable.
+Preview the **cs_num_clust_res** table.
+
+Second, call **cs_num_clust_res** and count the number of members in each cluster with **count()**.
+
+Third, call **cs_num_clust_res**, create groups with **hier_clust**, and summarize the numeric variables with **skim()**.
+
+You can copy what you did for **Task 4.3** in your **clustering_units_assignment.Rmd** script as a basis for the code for this task.
+
+**Question 7.3**: Answer these questions:
+(1) What is cluster membership of the *fifth* community in **cs_num_clust_res**?
+(2) How many communities are in the *sixth* cluster?
+(3) Which cluster has communities with the *highest average sales*?
+(4) Which cluster has communities with the *lowest average advertising*?
+
+**Response 7.3**: 
+(1) The cluster membership of the fifth community in cs_num_clust_res is 4.
+(2) There are 81 communities in the sixth cluster.
+(3) Cluster 5 has communities with the highest average sales.
+(4) Cluster 3 has communities with the lowest average advertising.
+
+```{r, task_7_3}
+cs_num_clust_res <- cs_num_clust %>%
+  mutate(hier_clust = cutree(hclust_res, 6),
+          hier_clust = as.factor(hier_clust))
+
+cs_num_clust_res
+
+
+cs_num_clust_res %>%
+  count(hier_clust)
+
+
+cs_num_clust_res %>%
+  group_by(hier_clust) %>%
+  skim()
+```
+
+## Task 7.4
+
+Perform these tasks.
+
+First, create **cs_num_clust_res_hier** from **cs_num_clust_res**.
+Make the table long with **pivot_longer()** and pivot all columns *except* for **hier_clust**. 
+Send the other variables to a column named **var** and their values to a column named **value**.
+Inside of **mutate()**, transform the strings of **var** to *title case* strings and convert **var** to a factor variable.
+Inside the same **mutate()**, update the **"Comp_price"** level of **var** using **var = fct_recode(var, "Comp. Price" = "Comp_price")** (note: you can write this code as a single line or multiple lines with comments for each input).
+Print **cs_num_clust_res_hier**.
+
+Second, create a plot named **hclust_var_plot**.
+Call **ggplot()** and set **cs_num_clust_res_hier** as the *data* input and map **hier_clust**, **value**, and **hier_clust** to the **x**, **y**, and **fill** aesthetics, respectively.
+Add a **geom_boxplot()** layer.
+Create facets using **var** in **facet_wrap()** and setting **nrow** to **3** and **scales** to **"free_y"**.
+Use **labs()** to update the *y-axis* title to **"Value"** and the **fill** to **"Cluster"**.
+Use **theme()** to position the *legend* to the *bottom* and *remove* the *x-axis* title.
+Print **hclust_var_plot** to view the plot.
+
+Third, create a plot named **hclust_pca_plot** to visualize the clustering results on the first two principal components.
+Call **fviz_cluster()** and call **list()** with the **data** input set to **cs_num_clust_res** with the **hier_clust** column removed and the **cluster** input set to **cs_num_clust_res** with the **hier_clust** column being pulled with **pull()** and converted to numeric with **as.numeric()**.
+Print **hclust_pca_plot** to view the plot.
+
+You can copy what you did for **Task 4.4** in your **clustering_units_assignment.Rmd** script as a basis for the code for this task.
+
+**Question 7.4**: Answer these questions:
+(1) Which cluster of communities has the *lowest median sales*?
+(2) Which cluster of communities has the *highest median competitor's price*?
+(3) Using **hclust_pca_plot**, how much variance do the first two principal components account for in the original six variables? 
+(4) Using **hclust_pca_plot**, which cluster does community number *76* to belong?
+
+**Response 7.4**: 
+(1) Cluster 6
+(2) Cluster 4
+(3) 3.2% and 96.6%
+(4) Cluster 2
+
+```{r, task_7_4}
+# Task 8.1
+cs_num_clust_res_hier <- cs_num_clust_res %>%
+  pivot_longer(cols = -hier_clust, names_to = "var", values_to = "value") %>%
+  mutate(
+    var = str_to_title(var),
+    var = fct_recode(var, "Comp. Price" = "Comp_price")
+  )
+
+cs_num_clust_res_hier
+
+# Task 8.2
+hclust_var_plot <- ggplot(cs_num_clust_res_hier, aes(x = hier_clust, y = value, fill = as.factor(hier_clust))) +
+  geom_boxplot() +
+  facet_wrap(~var, nrow = 3, scales = "free_y") +
+  labs(y = "Value", fill = "Cluster") +
+  theme(legend.position = "bottom", axis.title.x = element_blank())
+
+hclust_var_plot
+
+# Task 8.3
+hclust_pca_plot <- fviz_cluster(
+  list(
+    data = cs_num_clust_res[-ncol(cs_num_clust_res)],
+    cluster = as.numeric(pull(cs_num_clust_res, hier_clust))
+  )
+)
+
+hclust_pca_plot
+```
+
+# Task 8: Save Objects
+
+For this task, you will save the objects you created.
+
+First, save the working data, **car_seats_work**, as the data file: **car_seats_work.rds** in the **data** folder of the project directory using **saveRDS()** and **here()**.
+
+Second, save the plot objects you created as **png** files in the **plots** folder of the project directory using the combination of **walk()**, **ls()**, **ggsave()**, **here()**, **str_glue()**, **str_remove()**, and **get()**.
+Use a width of *8.1 inches* and a height of *5 inches*.
+
+```{r, task_8}
+# Save car_seats_work
+saveRDS(car_seats_work, file = here("data", "car_seats_work.rds"))
+
+# Save plots
+walk(ls(pattern = "plot"), function(plot_obj) {
+  plot_name <- str_remove(plot_obj, "_plot")
+  ggsave(
+    here("plots", str_glue("{plot_name}.png")),
+    plot = get(plot_obj),
+    width = 8.1,
+    height = 5
+  )
+})
+```
+
+# Task 9: Dashboard
+
+Make sure you executed the **task_8** code chunk before you begin this task.
+Open the **02_midterm_review_assignment.Rmd** script.
+You will create a single page dashboard consisting of three plots.
+
+You can use **01_flexdash_assignment.Rmd** to help you create these plots.
+
+In the **plot_1** code chunk, do the following:
+
+1. call **ggplot()** with **car_seats_work** as the data input, **shelve_loc** set to the *x-axis*, **price** set to the *y-axis*, and **urban** set to **fill**;
+2. add a **geom_violin()** layer;
+3. update the *y-axis* with **scale_y_continuous()** and **labels** set to **dollar_format()** and **breaks** set to **seq(0, 200, 25)**;
+4. label the axes and legend appropriately using *title case*: **"Shelf Location"**, **"Price (in thousands)"**, and **"Urban"**.
+
+In the **plot_2** code chunk, do the following:
+
+1. call **ggplot()** with **car_seats_work** as the data input, **age** set to the *x-axis* and **income** set to the *y-axis*;
+2. add a **geom_hex()** layer;
+3. update the *y-axis* with **scale_y_continuous()** and **labels** set to **dollar_format()** and **breaks** set to **seq(0, 125, 25)**;
+4. label the axes and legend appropriately using *title case*: **"Age"**, **"Income"**, and **"Count"**.
+
+In the **plot_3** code chunk, do the following:
+
+1. call **ggplot()** with **car_seats_work** as the data input, **price** set to the *x-axis* and **sales** set to the *y-axis*;
+2. add a **geom_density_2d_filled()** layer with **contour_var** set to **ndensity**;
+3. add a **facet_grid()** layer with categories of **urban** in the rows and categories of **us** in the columns;
+4. update the *x-axis* with **scale_x_continuous()** and **labels** set to **dollar_format()** and **breaks** set to **seq(0, 200, 25)**;
+5. update the *y-axis* with **scale_y_continuous()** and **labels** set to **dollar_format()** and **breaks** set to **seq(0, 20, 5)**;
+6. label the axes and legend appropriately using *title case*: **"Price"**, **"Sales (in thousands)"**, and **"Density"**.
+
+Knit the dashboard to **HTML** by selecting **Knit to flex_dashboard** from the **Knit** dropdown menu.
+
+You will submit both **02_midterm_review_assignment.Rmd** and **02_midterm_review_assignment.html**.
+
+# Task 10: Conceptual Questions
+
+For your last task, you will respond to conceptual questions based on the conceptual lectures covering the first four topics.
+
+**Question 10.1**: What are *two* common data cleaning tasks?
+
+**Response 10.1**: Two common data cleaning tasks are removing duplicate entries and handling missing values.
+
+**Question 10.2**: What is the difference between the *chi-square test of independence* and the *t-test for group mean differences*?
+
+**Response 10.2**: The chi-square test of independence is used to determine whether there is a significant association between two categorical variables, while the t-test for group mean differences is used to determine whether there is a significant difference between the means of two independent groups.
+
+**Question 10.3**: How does *agglormerative hierarchical clustering* work?
+
+**Response 10.3**: Agglomerative hierarchical clustering works by initially considering each data point as a single cluster and then iteratively merging the closest clusters until only one cluster remains. The distance between clusters is determined by a chosen linkage criterion, such as complete linkage or average linkage.
+
+**Question 10.4**: What is the utility of dashboards?
+
+**Response 10.4**: Dashboards provide a visual representation of data that allows users to quickly and easily monitor key performance indicators, trends, and metrics. They are useful for making informed decisions and identifying patterns or outliers in data.

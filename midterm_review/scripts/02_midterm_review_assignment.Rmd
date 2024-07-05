@@ -1,0 +1,77 @@
+---
+title: "Assignment: Midterm Review"
+output:
+  flexdashboard::flex_dashboard:
+    source_code: embed
+    orientation: columns
+    theme: cosmo
+editor_options: 
+  chunk_output_type: console
+---
+
+```{r, libraries, include = FALSE}
+## here to navigate project directory
+library(here)
+
+## tidyverse for data wrangling and visualization
+library(tidyverse)
+
+## scales for variable scales
+library(scales)
+
+## flexdashboard to build dashboards in R Markdown
+library(flexdashboard)
+
+## shiny for reactive dashboards
+library(shiny)
+
+## hexbin for hex plots
+library(hexbin)
+```
+
+```{r, global, include = FALSE}
+### import data objects
+## use readRDS() to import the data file
+car_seats_work <- readRDS(
+  ## use here() to locate file in our project directory
+  here(
+    # folder
+    "data", 
+    # file
+    "car_seats_work.rds"
+  )
+)
+```
+
+Column {.tabset .tabset-fade}
+-----------------------------------------------------------------------
+
+### Violin Plot
+
+```{r, plot_1}
+ggplot(car_seats_work, aes(x = shelve_loc, y = price, fill = urban)) +
+  geom_violin() +
+  scale_y_continuous(labels = dollar_format(), breaks = seq(0, 200, 25)) +
+  labs(x = "Shelf Location", y = "Price (in thousands)", fill = "Urban")
+```
+
+### Hex Bin Plot 
+
+```{r, plot_2}
+ggplot(car_seats_work, aes(x = age, y = income)) +
+  geom_hex() +
+  scale_y_continuous(labels = dollar_format(), breaks = seq(0, 125, 25)) +
+  labs(x = "Age", y = "Income", fill = "Count")
+
+```
+
+### 2D Density Plot
+
+```{r, plot_3}
+ggplot(car_seats_work, aes(x = price, y = sales)) +
+  geom_density_2d_filled(aes(contour_var = "ndensity")) +
+  facet_grid(urban ~ us) +
+  scale_x_continuous(labels = dollar_format(), breaks = seq(0, 200, 25)) +
+  scale_y_continuous(labels = dollar_format(), breaks = seq(0, 20, 5)) +
+  labs(x = "Price", y = "Sales (in thousands)", fill = "Density")
+```

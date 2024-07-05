@@ -1,0 +1,785 @@
+---
+title: "Assignment: Logistic Regression"
+author: "Jon Doretti"
+date: "`r lubridate::now(tzone = 'America/Chicago')`"
+output:
+  html_document:
+    toc: TRUE
+    toc_depth: 2
+    toc_float: TRUE
+    theme: yeti
+    highlight: zenburn
+    df_print: paged
+    code_folding: show
+editor_options:
+  chunk_output_type: console
+---
+
+# Instructions
+
+This assignment reviews the *Logistic Regression* content. 
+You will use the **logistic_regression.Rmd** file I reviewed as part of the lectures for this week to complete this assignment. 
+You will *copy and paste* relevant code from that file and update it to answer the questions in this assignment. 
+You will respond to questions in each section after executing relevant code to answer a question. 
+You will submit this assignment to its *Submissions* folder on *D2L*.
+You will submit *two* files:
+
+1. this completed *R Markdown* script, and 
+2. an *HTML* rendered version of it to *D2L*.
+
+To start:
+
+First, create a folder on your computer to save all relevant files for this course. 
+If you did not do so already, you will want to create a folder named **mgt_585** that contains all of the materials for this course.
+
+Second, inside of **mgt_585**, you will create a folder to host assignments.
+You can name that folder **assignments**.
+Inside the **assignments** folder, you can create a folder for topic assignments named: **topics**.
+
+Third, inside of the **topics** folder, you will create folders for each assignment.
+You can name the folder for this assignment: **06_logistic_regression**.
+
+Fourth, create two additional folders in **06_logistic_regression** named **scripts**, **data**, and **plots**.
+Store this script in the **scripts** folder and the data for this assignment in the **data** folder.
+
+Fifth, go to the *File* menu in *RStudio*, select *New Project...*, choose *Existing Directory*, go to your */mgt_585/assignments/topics/06_logistic_regression* folder to select it as the top-level directory for this *R Project*.  
+
+# Global Settings
+
+The first code chunk sets the global settings for the remaining code chunks in the document.
+Do *not* change anything in this code chunk.
+
+```{r, setup, include = FALSE}
+## specify echo setting for all code chunks
+knitr::opts_chunk$set(
+  # show code
+  echo = TRUE,
+  # show messages
+  message = FALSE,
+  # show warnings
+  warning = FALSE,
+  # figure dimensions
+  fig.dim = c(10, 6.2)
+)
+```
+
+# Activate Packages
+
+In this code chunk, we load the following packages:
+
+1. [here](https://here.r-lib.org);
+2. [tidyverse](https://www.tidyverse.org);
+3. [skimr](https://docs.ropensci.org/skimr/);
+4. [scales](https://scales.r-lib.org);
+5. [snakecase](https://tazinho.github.io/snakecase/);
+6. [broom](https://broom.tidymodels.org);
+7. [interactions](https://interactions.jacob-long.com);
+8. [jtools](https://jtools.jacob-long.com/index.html).
+
+Make sure you installed these packages when you reviewed the analytical lecture.
+
+We will use functions from these packages to examine the data. 
+Do *not* change anything in this code chunk.
+
+```{r, packages}
+## here for project workflow
+library(here)
+
+## tidyverse for data manipulation and plotting;
+## loads eight different libraries simultaneously
+library(tidyverse)
+
+## skimr to summarize data
+library(skimr)
+
+## scales for variable scales
+library(scales)
+
+## snakecase for naming conventions
+library(snakecase)
+
+## broom to examine output from statistical models
+library(broom) 
+
+## interactions to visualize interaction effects in regression models
+library(interactions)
+
+## jtools to summarize regression model results
+library(jtools)
+```
+
+# Task 1: Import Data
+
+We will use the same data as in the analytical lecture: **appliants.rdata**
+After you load the data, then you will execute other commands on the data.
+
+## Task 1.1
+
+Use the **load()** and **here()** functions to load the data file for this working session. 
+Apply **glimpse()** to both **applicants_1** and **applicants_2**.
+
+**Question 1.1**: Answer these questions:
+(1) What is the **HIRE** value of the first applicant in **applicants_1**?
+(2) What is the **workExp** value of the first applicant in **applicants_2**?
+
+**Response 1.1**: 
+(1) Yes
+(2) None
+
+```{r, task_1_1}
+### import data objects
+## use load() to import the data file
+load(
+  ## use here() to locate file in our project directory
+  here(
+    # folder
+    "data", 
+    # file
+    "applicants.rdata"
+  )
+)
+
+## preview data
+# first subset
+glimpse(applicants_1)
+
+# second subset
+glimpse(applicants_2)
+```
+
+## Task 1.2
+
+Stack **applicants_1** on top of **applicants_2** using **bind_rows()** and name the resulting object **applicants_raw**.
+Use the **glimpse()** to **applicants_raw**. 
+Remove **applicants_1** and **applicants_2** from your *Global Environment*.
+
+**Question 1.2**: What is the **Consc** value of the first applicant?
+
+**Response 1.2**: 56.94018
+
+```{r, task_1_2}
+# Combine the two data frames
+applicants_raw <- bind_rows(applicants_1, applicants_2)
+
+# Display the structure of the combined data frame
+glimpse(applicants_raw)
+
+# Remove applicants_1 and applicants_2 from the global environment
+rm(applicants_1, applicants_2)
+```
+
+# Task 2: Clean Data
+
+In this task, you will clean the data.
+
+## Task 2.1
+
+In one chained command, create **applicants_work** from **applicants_raw** by performing the following operations:
+
+1. move the **id** column to the *first* position with **relocate()**;
+2. change variable names to snake case using **rename_with()** and **to_snake_case()**;
+3. convert **work_exp** and **hire** to factor variables using **across()** and **as_factor()**; 
+4. relevel **work_exp** to move **"None"** and **"1-3 Years"** to the first two positions;
+5. relevel **hire** to move **"No"** to the first position
+6. mean-center **work_sample** and **emot_intel** using **across()** and the correct *function* formula and name the new variables **work_sample_cent** and **emot_intel_cent**.
+
+Examine **applicants_work** with **glimpse()**.
+
+**Question 2.1**: Answer these questions:
+(1) How many many factor variables are there in the *working* data?
+(2) How do you correctly interpret the *first* value of **emot_intel_cent**?
+
+**Response 2.1**: 
+(1) 2
+(2) 2.733289
+
+```{r, task_2_1}
+# Perform the chained operations
+applicants_work <- applicants_raw %>%
+  # Change variable names to snake case
+  rename_with(.fn = to_snake_case) %>%
+  # Move the id column to the first position
+  relocate(id) %>%
+  # Convert work_exp and hire to factor variables
+  mutate(across(.cols = c(work_exp, hire), .fns = as_factor), 
+         work_exp = fct_relevel(work_exp, "None", "1-3 Years"),
+        hire = fct_relevel(hire, "No"),
+       across(.cols = c(work_sample, emot_intel), 
+                .fns = list(cent = ~ . - mean(.x, na.rm = TRUE)) ))
+
+# Examine applicants_work with glimpse()
+glimpse(applicants_work)
+```
+
+# Task 3: Examine Data
+
+In this task, you will examine the data.
+
+## Task 3.1
+
+Pipe **applicants_work** into **select()** and exclude **id**.
+Pipe the result to **skim()** to view a summary of the variables.
+View the output to respond to questions.
+
+**Question 3.1**: Answer these questions:
+(1) What is the *median* value of **emot_intel**?
+(2) How many *applicants* were *hired*?
+
+**Response 3.1**: 
+(1) 51.2
+(2) 3777
+
+```{r, task_3_1}
+# Pipe applicants_work into select() to exclude id, then pipe to skim()
+applicants_work %>%
+  select(-id) %>%
+  skim()
+```
+
+## Task 3.2
+
+Create a data table named **applicants_work_long** from **applicants_work**.
+Pipe **applicants_work** to **select()** to exclude the *centered* variables.
+Pipe the result to **pivot_longer()**.
+Set the **cols** input to **c(-id, -work_exp, -hire)**, the **names_to** to **"var_name"**, and **values_to** to **"var_value"**.
+
+Call **ggplot()**.
+Set **applicants_work_long** as the *data* input and map **var_name** to the *x-axis*, **var_value** to the *y-axis*, and **var_name** to the **fill**.
+Add a **geom_boxplot()** layer.
+Create facets with **facet_grid()** with **hire** in the rows and **work_exp** in the columns.
+Adjust labels for the *x* and *y* axes using **labs()**.
+Add a title with **ggtitle()** to describe the facets.
+Update the theme with **theme()** by *removing* the legend and changing the angle of the x-axis labels to 45-degrees with **elment_text()**.
+
+**Question 3.2**: Is the *median* *emotional intelligence* score higher for *1-3 years* or *3+ years* of *work experience* for those applicants who were *not hired*?
+
+**Response 3.2**: 1-3 years score is higher.
+
+```{r, task_3_2}
+# Step 1: Create applicants_work_long
+applicants_work_long <- applicants_work %>%
+  select(-work_sample_cent, -emot_intel_cent) %>%
+  pivot_longer(cols = c(-id, -work_exp, -hire), names_to = "var_name", values_to = "var_value")
+
+# Step 2: Create the plot
+ggplot(applicants_work_long, aes(x = var_name, y = var_value, fill = var_name)) +
+  geom_boxplot() +
+  facet_grid(hire ~ work_exp) +
+  labs(x = "Variable Name", y = "Variable Value") +
+  ggtitle("Boxplots of Variables by Hiring Decision and Work Experience") +
+  theme(legend.position = "none",
+        axis.text.x = element_text(angle = 45, hjust = 1))
+```
+
+# Task 4: Fit Simple Logistic Regression Model
+
+For this task, you will fit a logistic regression model with one predictor.
+
+## Task 4.1
+
+Examine the *levels* of **hire** by calling **applicants_work**, piping to pull **hire**, and piping the result to **levels()**.
+
+Examine the *contrasts* of **hire** by calling **applicants_work**, piping to pull **hire**, and piping the result to **contrasts()**.
+
+Estimate a logistic regression model named **mod_1** where observed values of **hire** (i.e., whether the applicants were hired) are predicted from observed values of **emot_intel** (i.e., applicant emotional intelligence scores).
+Use **glance()**, **tidy()**, and **summ()** to review the content of **mod_1**
+Apply **exp()** and **coef()** to **mod_1** to examine the odds ratio regression coefficients.
+
+**Question 4.1**: Answer these questions:
+(1) What does a value of *one* represent for **hire**?
+(2) What is *Cragg-Uhler's pseudo-r-squared* value for **mod_1**?
+(3) For every one-unit change in *emotional intelligence*, how does the *logit of hiring* change?
+(4) What is the *odds ratio* regression coefficient for *emotional intelligence*?
+
+**Response 4.1**: 
+(1) WRITE YOUR RESPONSE HERE
+(2) WRITE YOUR RESPONSE HERE
+(3) WRITE YOUR RESPONSE HERE
+(4) WRITE YOUR RESPONSE HERE
+
+```{r, task_4_1}
+# Examine levels of hire
+levels(applicants_work %>% pull(hire))
+
+# Examine contrasts of hire
+contrasts(applicants_work %>% pull(hire))
+
+# Estimate logistic regression model
+mod_1 <- glm(hire ~ emot_intel, data = applicants_work, family = "binomial")
+
+# Review content of mod_1 using glance(), tidy(), and summ()
+glance(mod_1)
+tidy(mod_1)
+summ(mod_1)
+
+exp(coef(mod_1))
+```
+
+## Task 4.2
+
+Create a new table named **mod_1_results**.
+Pipe **applicants_work** to **select()** and select **emot_intel** and **hire**.
+Calculate the *logit*, *odds ratio*, and *probability* fitted values for **mod_1** and save them as **logit**, **odds_ratio**, and **prob**, respectively.
+
+Pipe **mod_1_results** to **arrange()** and order the rows by *descending* **prob**.
+Pipe the result to **print()** and print the first *20* rows.
+
+**Question 4.2**: Answer these questions:
+(1) What is the *logit* fitted value of the *second* listed applicant?
+(2) What is the *odds ratio* fitted value of the *seventh* listed applicant?
+(3) What is the *probability* fitted value of the *twelfth* listed applicant?
+
+**Response 4.2**: 
+(1) -1.80
+(2) 1.0334
+(3) .034
+
+```{r, task_4_2}
+# Create mod_1_results
+mod_1_results <- applicants_work %>%
+  select(emot_intel, hire) %>%
+  mutate(
+    logit = predict(mod_1, type = "link"), # Logit (log-odds) fitted values
+    odds_ratio = exp(logit), # Odds ratio
+    prob = predict(mod_1, type = "response") # Probability fitted values
+  )
+
+# Arrange by descending probability and print the first 20 rows
+mod_1_results %>%
+  arrange(desc(prob)) %>%
+  print(n = 20)
+```
+
+## Task 4.3
+
+Create a plot named **mod_1_plot** using **effect_plot()**.
+Set **mod_1** as the *model* input and **emot_intel** as the **pred** input.
+Color the regression line *blue* and include the *data points* and *standard error interval*.
+Set the *x-axis title* to **"Emotional Intelligence Scores"** and the *y-axis title* to **"Probability of Hire"**.
+Using **scale_x_continuous()**, adjust the *x-axis breaks* with **seq(10, 90, 10)**.
+Using **scale_y_continuous()**, adjust the *y-axis breaks* with **seq(0, 1, 0.1)**.
+
+View **mod_1_plot**.
+
+**Question 4.3**: Answer these questions:
+(1) For an applicant with an *emotional intelligence score of 50*, is the probability of hiring that applicant *greater* or *less* than *0.50*?
+(2) For an applicant with an *emotional intelligence score of 70*, is the probability of hiring that applicant *greater* or *less* than *0.50*?
+
+**Response 4.3**: 
+(1) Less than
+(2) Greater than
+
+```{r, task_4_3}
+# Create the plot mod_1_plot
+mod_1_plot <- effect_plot(
+  mod_1, 
+  pred = emot_intel, 
+  interval = TRUE, 
+  data = applicants_work,
+  colors = "blue"
+) + 
+  labs(
+    x = "Emotional Intelligence Scores", 
+    y = "Probability of Hire"
+  ) +
+  scale_x_continuous(breaks = seq(10, 90, 10)) +
+  scale_y_continuous(breaks = seq(0, 1, 0.1))
+
+# View the plot
+mod_1_plot
+```
+
+# Task 5: Fit Multiple Logistic Regression Model
+
+For this task, you will fit a logistic regression model with two predictors.
+
+## Task 5.1
+
+Examine the *levels* of **work_exp** by calling **applicants_work**, piping to pull **work_exp**, and piping the result to **levels()**.
+
+Examine the *contrasts* of **work_exp** by calling **applicants_work**, piping to pull **work_exp**, and piping the result to **contrasts()**. 
+
+Estimate a logistic regression model named **mod_2** where observed values of **hire**  are predicted from observed values of **emot_intel** and **work_exp** (i.e., applicant work experience).
+Use **glance()**, **tidy()**, and **summ()** to review the content of **mod_2**.
+Apply **exp()** and **coef()** to **mod_2** to examine the odds ratio regression coefficients.
+Apply **anova()** on **mod_1** and **mod_2** to perform a chi-square difference test.
+
+**Question 5.1**: Answer these questions:
+(1) What is the *logit* regression coefficient for **work_exp1-3 Years**?
+(2) What is the *odds ratio* regression coefficient for **work_exp3+ Years**?
+(3) By how much does **mod_2** reduce the residual deviance relative to **mod_1**?
+
+**Response 5.1**: 
+(1) .397
+(2) 2.8157
+(3) 376.73
+
+```{r, task_5_1}
+# Examine the levels of work_exp
+applicants_work %>%
+  pull(work_exp) %>%
+  levels()
+
+# Examine the contrasts of work_exp
+applicants_work %>%
+  pull(work_exp) %>%
+  contrasts()
+
+# Estimate a logistic regression model named mod_2
+mod_2 <- glm(
+  hire ~ emot_intel + work_exp,
+  data = applicants_work,
+  family = binomial
+)
+
+# Use glance(), tidy(), and summ() to review the content of mod_2
+glance(mod_2)
+tidy(mod_2)
+summ(mod_2)
+
+# Examine the odds ratio regression coefficients
+exp(coef(mod_2))
+
+# Perform a chi-square difference test between mod_1 and mod_2
+anova(mod_1, mod_2, test = "Chisq")
+```
+
+## Task 5.2
+
+Create a new table named **mod_2_results**.
+Pipe **applicants_work** to **select()** and select **emot_intel**, **work_exp**, and **hire**.
+Calculate the *logit*, *odds ratio*, and *probability* fitted values for **mod_2** and save them as **logit**, **odds_ratio**, and **prob**, respectively.
+
+Pipe **mod_2_results** to **arrange()** and order the rows by *descending* **prob**.
+Pipe the result to **print()** and print the first *20* rows.
+
+Create an object named **mod_2_acc**.
+Calculate the number of *true positive*, *true negative*, *false positive*, and *false negative* decisions you would make with **mod_2** if you were to hire anyone with a probability greater than or equal to **0.50**.
+Print the table.
+
+Use **mod_2_acc** to calculate the *overall*, *positive*, *negative*, *sensitivity*, and *specificity* proportions and print the result.
+
+**Question 5.2**: Answer these questions:
+(1) What is the *probability* fitted value of the *twelfth* listed applicant?
+(2) How many *false positive* decisions are made using this decision threshold with **mod_2**?
+(3) What is the *positive* accuracy using this decision threshold with **mod_2**?
+
+**Response 5.2**: 
+(1) .694  
+(2) 1628
+(3) .583
+
+```{r, task_5_2}
+# Create mod_2_results
+mod_2_results <- applicants_work %>%
+  select(emot_intel, work_exp, hire) %>%
+  mutate(
+    logit = predict(mod_2, type = "link"),
+    odds_ratio = exp(logit),
+    prob = predict(mod_2, type = "response")
+  )
+
+# Arrange by descending probability and print the first 20 rows
+mod_2_results %>%
+  arrange(desc(prob)) %>%
+  print(n = 20)
+
+# Create mod_2_acc
+mod_2_acc <- mod_2_results %>%
+  mutate(
+    predicted_hire = ifelse(prob >= 0.50, "Yes", "No")
+  ) %>%
+  mutate(
+    true_positive = ifelse(predicted_hire == "Yes" & hire == "Yes", 1, 0),
+    true_negative = ifelse(predicted_hire == "No" & hire == "No", 1, 0),
+    false_positive = ifelse(predicted_hire == "Yes" & hire == "No", 1, 0),
+    false_negative = ifelse(predicted_hire == "No" & hire == "Yes", 1, 0)
+  ) %>%
+  summarise(
+    true_positive = sum(true_positive),
+    true_negative = sum(true_negative),
+    false_positive = sum(false_positive),
+    false_negative = sum(false_negative)
+  )
+
+# Print the confusion matrix table
+mod_2_acc
+
+# Calculate and print the proportions
+mod_2_acc %>%
+  mutate(
+    overall_accuracy = (true_positive + true_negative) / (true_positive + true_negative + false_positive + false_negative),
+    positive_predictive_value = true_positive / (true_positive + false_positive),
+    negative_predictive_value = true_negative / (true_negative + false_negative),
+    sensitivity = true_positive / (true_positive + false_negative),
+    specificity = true_negative / (true_negative + false_positive)
+  ) 
+
+mod_2_acc
+```
+
+## Task 5.3
+
+Create a plot named **mod_2_plot** using **ggplot()**.
+Set **mod_2_results** as the *data* input and **emot_intel** to the x-axis, **prob** to the y-axis, and **work_exp** to **color**.
+Add a **geom_line()** layer with **linewidth** set to **2**.
+Use **scale_x_continuous()** to adjust the x-axis to go from **0** to **90** by **10**.
+Use **scale_y_continuous()** to adjust the y-axis to go from **0** to **1** by **0.10**.
+Set the x-axis label to **"Emotional Intelligence Scores"**.
+Set the y-axis label to **"Probability of Hiring"**.
+Set the **color** label to **"Work Exp."**.
+
+Display the plot.
+
+**Question 5.3**: Answer thse questions:
+(1) Irrespective of *work experience*, does the probability of hire *decrease* or *increase* as *emotional intelligence scores* increase?
+(2) For any given *emotional intelligence score*, which *work experience* category has the *higest* probability of hire?
+
+**Response 5.3**: 
+(1) Increase as emotional intelligence scores increase.
+(2) 3+ years
+
+```{r, task_5_3}
+# Create mod_2_plot
+mod_2_plot <- ggplot(mod_2_results, aes(x = emot_intel, y = prob, color = work_exp)) +
+  geom_line(size = 2) +
+  scale_x_continuous(breaks = seq(0, 90, 10)) +
+  scale_y_continuous(breaks = seq(0, 1, 0.10)) +
+  labs(x = "Emotional Intelligence Scores",
+       y = "Probability of Hiring",
+       color = "Work Exp.") +
+  theme_minimal()
+
+# Display the plot
+print(mod_2_plot)
+```
+
+# Task 6: Fit Moderated Logistic Regression Model
+
+For this task, you will fit a logistic regression model with two predictors and their interaction effect.
+
+## Task 6.1
+
+Estimate a logistic regression model named **mod_3** where observed values of **hire**  are predicted from observed values of **emot_intel_cent**, **work_exp**, and their interaction effect.
+Use **glance()**, **tidy()**, and **summ()** to review the content of **mod_3**.
+Apply **exp()** and **coef()** to **mod_3** to examine the odds ratio regression coefficients.
+Apply **anova()** on **mod_2** and **mod_3** to perform a chi-square difference test.
+
+**Question 6.1**: Answer three questions:
+(1) What is the *logit* regression coefficient for **emot_intel_cent:work_exp1-3 Years**?
+(2) What is the *odds ratio* regression coefficient for **emot_intel_cent:work_exp1-3 Years**?
+(3) By how much does **mod_3** reduce the residual deviance relative to **mod_2**?
+
+**Response 6.1**: 
+(1) -.0949
+(2) .9095
+(3) 186.6
+
+```{r, task_6_1}
+# Estimate mod_3
+mod_3 <- glm(hire ~ emot_intel_cent * work_exp, data = applicants_work, family = "binomial")
+
+# Review the content of mod_3
+glance(mod_3)
+tidy(mod_3)
+summ(mod_3)
+
+# Examine odds ratio regression coefficients
+exp(coef(mod_3))
+
+# Perform a chi-square difference test
+anova(mod_2, mod_3, test = "Chisq")
+```
+
+## Task 6.2
+
+Create a new table named **mod_3_results**.
+Pipe **applicants_work** to **select()** and select **emot_intel_cent**, **work_exp**, and **hire**.
+Calculate the *logit*, *odds ratio*, and *probability* fitted values for **mod_3** and save them as **logit**, **odds_ratio**, and **prob**, respectively.
+
+Pipe **mod_3_results** to **arrange()** and order the rows by *descending* **prob**.
+Pipe the result to **print()** and print the first *20* rows.
+
+Create an object named **mod_3_acc**.
+Calculate the number of *true positive*, *true negative*, *false positive*, and *false negative* decisions you would make with **mod_3** if you were to hire anyone with a probability greater than or equal to **0.60**.
+Print the table.
+
+Use **mod_3_acc** to calculate the *overall*, *positive*, *negative*, *sensitivity*, and *specificity* proportions and print the result.
+
+**Question 6.2**: Answer these questions:
+(1) What is the *odds ratio* fitted value of the *fourth* listed applicant?
+(2) How many *true positive* decisions are made using this decision threshold with **mod_3**?
+(3) What is the *specificity* accuracy using this decision threshold with **mod_3**?
+
+**Response 6.2**: 
+(1) 6.33
+(2) 1309
+(3) .831
+
+```{r, task_6_2}
+# Create mod_3_results
+mod_3_results <- applicants_work %>%
+  select(emot_intel_cent, work_exp, hire) %>%
+  mutate(
+    logit = predict(mod_3, type = "link"),
+    odds_ratio = exp(logit),
+    prob = predict(mod_3, type = "response")
+  )
+
+# Arrange by descending probability and print the first 20 rows
+mod_3_results %>%
+  arrange(desc(prob)) %>%
+  print(n = 20)
+
+# Calculate true positive, true negative, false positive, and false negative for mod_3 at probability >= 0.60
+mod_3_acc <- mod_3_results %>%
+  mutate(pred_hire = ifelse(prob >= 0.60, "Yes", "No")) %>%
+  mutate(true_pos = ifelse(hire == "Yes" & pred_hire == "Yes", 1, 0),
+         true_neg = ifelse(hire == "No" & pred_hire == "No", 1, 0),
+         false_pos = ifelse(hire == "No" & pred_hire == "Yes", 1, 0),
+         false_neg = ifelse(hire == "Yes" & pred_hire == "No", 1, 0)) %>%
+  summarise(
+    true_positive = sum(true_pos),
+    true_negative = sum(true_neg),
+    false_positive = sum(false_pos),
+    false_negative = sum(false_neg)
+  )
+
+# Print the confusion matrix table
+print(mod_3_acc)
+
+# Calculate and print the proportions
+mod_3_acc %>%
+  mutate( overall_accuracy = (true_positive + true_negative) / (true_positive + true_negative + false_positive + false_negative),
+    positive_predictive_value = true_positive / (true_positive + false_positive),
+    negative_predictive_value = true_negative / (true_negative + false_negative),
+    sensitivity = true_positive / (true_positive + false_negative),
+    specificity = true_negative / (true_negative + false_positive))
+
+```
+
+## Task 6.3
+
+Create a plot named **mod_3_plot** using **interact_plot()**.
+Set **mod_3** as the *model* input and **emot_intel_cent** as the **pred** input and **work_exp** as the **modx** input.
+Color the regression line *blue* and exclude the *data points*, include *standard error interval*, set the *line thickness* to **2**, and set the *colors* to *red*, *green*, and *blue*.
+Set the *x-axis title* to **"Emotional Intelligence Scores"**, the *y-axis title* to **"Probability of Hire"**, and the *legend* to **"Work. Exp"**.
+Using **scale_x_continuous()**, adjust the *x-axis breaks* with **seq(-40, 40, 10)**.
+Using **scale_y_continuous()**, adjust the *y-axis breaks* with **seq(0, 1, 0.1)** and setting the *limits* to **c(0, 1)**.
+Move the *legend* to the *bottom* using **theme()**.
+
+View **mod_3_plot**.
+
+Call **sim_slopes()**.
+Set **mod_3** as the *model* input and **emot_intel_cent** as the **pred** input and **work_exp** as the **modx** input.
+
+**Question 6.3**: Answer two questions:
+(1) For *emotional intelligence* scores *30 units below the mean*, is the *probability of hiring* higher for *one to three years of work experience* or *three plus years of work experience*?
+(2) For *emotional intelligence* scores *30 units above the mean*, is the *probability of hiring* higher for *one to three years of work experience* or *three plus years of work experience*?
+
+**Response 6.3**: 
+(1) 1-3 years
+(2) 3+ years
+
+```{r, task_6_3}
+# Create mod_3_plot using interact_plot
+mod_3_plot <- interact_plot(mod_3, pred = emot_intel_cent, modx = work_exp) +
+  geom_smooth(method = "glm", se = TRUE, color = "blue", size = 2, aes(color = work_exp)) +
+  scale_x_continuous(breaks = seq(-40, 40, 10), name = "Emotional Intelligence Scores") +
+  scale_y_continuous(breaks = seq(0, 1, 0.1), limits = c(0, 1), name = "Probability of Hire") +
+  labs(color = "Work. Exp") +
+  theme(legend.position = "bottom")
+
+# View mod_3_plot
+print(mod_3_plot)
+
+# Call sim_slopes
+sim_slopes(mod_3, pred = "emot_intel_cent", modx = "work_exp")
+
+```
+
+# Task 7: Save Objects
+
+For this task, you will save the plots and the working data.
+First, save the following objects in a single data file named **applicants_multiple_objects.rdata** using **save()** and **here()**: **mod_1**, **mod_2**, **mod_3**, **mod_1_results**, **mod_2_results**, **mod_3_results**, **mod_1_plot**, **mod_2_plot**, and **mod_3_plot**.
+
+Second, save the three plot objects as **png** files in the **plots** folder of the project directory using the combination of **walk()**, **ls()**, **ggsave()**, **here()**, **str_glue()**, **str_remove()**, and **get()**.
+Use a width of *8.1 inches* and a height of *5 inches*.
+
+```{r, task_7}
+### save working data
+## use write_csv() to export as a csv data file
+save(
+  ## models
+  mod_1, mod_2, mod_3,
+  ## data tables
+  mod_1_results, mod_2_results, mod_3_results,
+  ## plots
+  mod_1_plot, mod_2_plot, mod_3_plot,
+  ## use here() to export data to project directory
+  file = here(
+    # folder
+    "data", 
+    # file
+    "applicants_multiple_objects.rdata"
+  )
+)
+
+### save plots
+## call function
+walk(
+  ## vector of plots
+  ls(
+    # name pattern
+    pattern = "plot"
+  ),
+  ## function
+  function(plot_inp) {
+    ### save plot
+    ## call function
+    ggsave(
+      ## file path
+      here(
+        # folder
+        "plots",
+        # file
+        str_glue(
+          # remove string
+          str_remove(
+            # string
+            plot_inp,
+            # pattern
+            "_plot"
+          ),
+          # extension
+          ".png"
+        )
+      ),
+      ## plot object
+      plot = get(plot_inp),
+      ## units
+      units = "in",
+      ## width
+      width = 8.1,
+      ## height
+      height = 5
+    )
+  }
+)
+```
+
+# Task 8: Conceptual Questions
+
+For your last task, you will respond to conceptual questions based on the conceptual lectures for this week.
+
+**Question 8.1**: What does an *odds ratio* represent computationally?
+
+**Response 8.1**: An odds ratio represents the likelihood of an event occurring (e.g., being hired) compared to the likelihood of it not occurring. It is computed as the ratio of the odds of the event in one group (e.g., high emotional intelligence) to the odds of the event in another group (e.g., low emotional intelligence).
+
+**Question 8.2**: If the *logit regression coefficient* for a predictor is *negative*, then what can we say about the *value* of the corresponding *odds ratio regression coefficient*?
+
+**Response 8.2**: If the logit regression coefficient for a predictor is negative, then the corresponding odds ratio regression coefficient will be less than 1. This means that for every one-unit increase in the predictor, the odds of the event (e.g., being hired) decrease by a factor equal to the odds ratio.
+
+**Question 8.3**: What *estimation method* is used to calculate logistic regression coefficients?
+
+**Response 8.3**: Logistic regression coefficients are typically estimated using maximum likelihood estimation (MLE). This method finds the values of the coefficients that maximize the likelihood of the observed data given the logistic regression model.

@@ -1,0 +1,1077 @@
+---
+title: "Assignment: Random Forests"
+author: "Jon Doretti"
+date: "`r lubridate::now(tzone = 'America/Chicago')`"
+output:
+  html_document:
+    toc: TRUE
+    toc_depth: 2
+    toc_float: TRUE
+    theme: yeti
+    highlight: zenburn
+    df_print: paged
+    code_folding: show
+editor_options:
+  chunk_output_type: console
+---
+
+# Instructions
+
+This assignment reviews the *Random Forests* content. 
+You will use the **random_forests.Rmd** file I reviewed as part of the lectures for this week to complete this assignment. 
+You will *copy and paste* relevant code from that file and update it to answer the questions in this assignment. 
+You will respond to questions in each section after executing relevant code to answer a question. 
+You will submit this assignment to its *Submissions* folder on *D2L*.
+You will submit *two* files:
+
+1. this completed *R Markdown* script, and 
+2. an *HTML* rendered version of it to *D2L*.
+
+To start:
+
+First, create a folder on your computer to save all relevant files for this course. 
+If you did not do so already, you will want to create a folder named **mgt_585** that contains all of the materials for this course.
+
+Second, inside of **mgt_585**, you will create a folder to host assignments.
+You can name that folder **assignments**.
+Inside the **assignments** folder, you can create a folder for topic assignments named: **topics**.
+
+Third, inside of the **topics** folder, you will create folders for each assignment.
+You can name the folder for this assignment: **08_random_forests**.
+
+Fourth, create two additional folders in **08_random_forests** named **scripts**, **data**, and **plots**.
+Store this script in the **scripts** folder and the data for this assignment in the **data** folder.
+
+Fifth, go to the *File* menu in *RStudio*, select *New Project...*, choose *Existing Directory*, go to your */mgt_585/assignments/topics/08_random_forests* folder to select it as the top-level directory for this *R Project*.  
+
+# Global Settings
+
+The first code chunk sets the global settings for the remaining code chunks in the document.
+Do *not* change anything in this code chunk.
+
+```{r, setup, include = FALSE}
+## specify echo setting for all code chunks
+knitr::opts_chunk$set(
+  # show code
+  echo = TRUE,
+  # show messages
+  message = FALSE,
+  # show warnings
+  warning = FALSE,
+  # figure dimensions
+  fig.dim = c(10, 6.2)
+)
+```
+
+# Activate Packages
+
+In this code chunk, we load the following packages:
+
+1. [here](https://here.r-lib.org);
+2. [tidyverse](https://www.tidyverse.org);
+3. [lubridate](https://lubridate.tidyverse.org);
+4. [skimr](https://docs.ropensci.org/skimr/);
+5. [scales](https://scales.r-lib.org);
+6. [snakecase](https://tazinho.github.io/snakecase/);
+7. [corrr](https://corrr.tidymodels.org);
+8. [ggthemes](https://jrnold.github.io/ggthemes/);
+9. [tidymodels](https://www.tidymodels.org);
+10. [glmnet](https://glmnet.stanford.edu);
+11. [DBI](https://dbi.r-dbi.org);
+12. [RSQLite](https://rsqlite.r-dbi.org);
+13. [ranger](https://cran.r-project.org/web/packages/ranger/ranger.pdf);
+14. [vip](https://koalaverse.github.io/vip/index.html);
+15. [tictoc](https://cran.r-project.org/web/packages/tictoc/tictoc.pdf);
+16. [parallelly](https://parallelly.futureverse.org);
+17. [doFuture](https://dofuture.futureverse.org).
+
+Make sure you installed these packages when you reviewed the analytical lecture.
+
+We will use functions from these packages to examine the data. 
+Do *not* change anything in this code chunk.
+
+```{r, packages}
+## here for project work flow
+library(here)
+
+## tidyverse for data manipulation and plotting;
+## activates multiple packages simultaneously
+library(tidyverse)
+
+## lubridate for dates
+library(lubridate)
+
+## skimr to summarize data
+library(skimr)
+
+## scales for variables scales
+library(scales)
+
+## snakecase for naming conventions
+library(snakecase)
+
+## corrr for correlation matrices
+library(corrr)
+
+## ggthemes for plot themes
+library(ggthemes)
+
+## tidymodels for modeling;
+## activates multiple packages simultaneously
+library(tidymodels)
+
+## glmnet for elastic net models
+library(glmnet)
+
+## DBI for database interaction
+library(DBI)
+
+## RSQLite for SQLite databases
+library(RSQLite)
+
+## ranger for random forests
+library(ranger)
+
+## vip for variable importance
+library(vip)
+
+## tictoc for timing
+library(tictoc)
+
+## parallel for parallel processing
+library(parallelly)
+
+## doFuture for parallel processing
+library(doFuture)
+```
+
+# Task 1: Database Connection
+
+We will use the same database file as in the analytical lecture: **miami_housing.sqlite**
+After you connect to the database, then you will work with the tables inside the database.
+
+## Task 1.1
+
+Create a database connection object named **miami_con** by using **dbConnect()**.
+Inside of **dbConnect()**, set **SQLite()** as the database driver and use **here()** to navigate to the **data** folder of the project directory to locate the database file **miami_housing.sqlite**.
+Apply **dbListTables()** to **miami_con**.
+
+**Question 1.1**: How many tables are in the database?
+
+**Response 1.1**: 2
+
+```{r, task_1_1}
+miami_con <- dbConnect(
+  ## driver
+  SQLite(),
+  ## use here() to locate file in our project directory
+  here(
+    # folder
+    "data", 
+    # file
+    "miami_housing.sqlite"
+  )
+)
+
+### list tables
+## call function
+dbListTables(miami_con)
+```
+
+## Task 1.2
+
+Perform these operations.
+
+Pipe **miami_con** to **tbl()** and set **"overview"** as the input.
+
+Pipe **miami_con** to **tbl()** and set **"distance"** as the input.
+
+**Question 1.2**: Answer these questions:
+(1) What is the *first* value of **SALE_PRC** in the *overview* table?
+(2) What is the *first* value of **RAIL_DIST** in the *distance* table?
+
+**Response 1.2**:
+(1) $440,000
+(2) 2816
+
+```{r, task_1_2}
+miami_con %>%
+  ## preview table
+  tbl(
+    # table
+    "overview"
+  )
+
+### view table
+## call connection
+miami_con %>%
+  ## preview table
+  tbl(
+    # table
+    "distance"
+  ) 
+```
+
+# Task 2: Clean Data
+
+For this task, you will clean the data.
+
+## Task 2.1
+
+In one chained command, create a data table named **overview** by performing the following operations: 
+
+1. pipe **miami_con** to **tbl()** and set **"overview"** as the input;
+2. pipe the result to **collect()** to extract the table from the database;
+3. change variable names to snake case using **rename_with()** and **to_snake_case()**;
+4. update the variable names of **parcelno** to **parcel_id** and **avno_60_plus** to **airplane_noise** using **rename()**;
+5. call **mutate()** to perform several additional operations;
+6. update **month_sold** with **month()** and set **label** to **TRUE**;
+7. convert **airplane_noise** to a *nominal factor* variable and recode its levels to **"No"** and **"Yes"** from **"0"** and **"1"**, respectively;
+8. convert **structure_quality** to an *ordered factor* variable and recode its levels to **"Very Bad"**, **"Bad"**, **"Okay"**, **"Good"**, and **"Very Good"** from **"1"**, **"2"**, **"3"**, **"4"**, and **"5"**, respectively.
+
+Examine **overview** with **glimpse()**.
+
+**Question 2.1**: Answer these questions:
+(1) How many *observations* are there in the *overview* table?
+(2) How many *variables* are there in the *overview* table?
+(3) How many *ordered factor* variables are there in the *overview* table?
+
+**Response 2.1**:
+(1) 13,776
+(2) 11
+(3) 1 - structure_quality
+
+```{r, task_2_1}
+overview <- miami_con %>%
+  tbl("overview") %>%
+  collect() %>%
+  rename_with(~to_snake_case(.)) %>%
+  rename(parcel_id = parcelno, airplane_noise = avno_60_plus) %>%
+  mutate(month_sold = month(month_sold, label = TRUE),
+         airplane_noise = factor(airplane_noise, levels = c("0", "1"), labels = c("No", "Yes")),
+         structure_quality = factor(structure_quality, ordered = TRUE,
+                                    levels = c("1", "2", "3", "4", "5"),
+                                    labels = c("Very Bad", "Bad", "Okay", "Good", "Very Good")))
+
+glimpse(overview)
+```
+
+## Task 2.2
+
+In one chained command, create a data table named **distance** by performing the following operations: 
+
+1. pipe **miami_con** to **tbl()** and set **"distance"** as the input;
+2. pipe the result to **collect()** to extract the table from the database;
+3. change variable names to snake case using **rename_with()** and **to_snake_case()**;
+4. update the variable names of **parcelno** to **parcel_id** and **subcntr_di** to **subcntr_dist** using **rename()**.
+
+Examine **distance** with **glimpse()**.
+
+**Question 2.2**: Answer these questions:
+(1) How many *observations* are there in the *distance* table?
+(2) How many *variables* are there in the *distance* table?
+
+**Response 2.2**:
+(1) 13776
+(2) 7
+
+```{r, task_2_2}
+distance <- miami_con %>%
+  tbl("distance") %>%
+  collect() %>%
+  rename_with(~to_snake_case(.)) %>%
+  rename(parcel_id = parcelno, subcntr_dist = subcntr_di)
+
+glimpse(distance)
+```
+
+# Task 3: Join Data
+
+For this task, you will join data tables.
+
+## Task 3.1
+
+Create a new data table named **house_complete**.
+Pipe **overview** into **left_join()** and set **distance** as the additional *data* input and **by** to **"parcel_id"**.
+Preview **house_complete** with **glimpse()**.
+
+**Question 3.1**: Answer these questions:
+(1) How many *observations* are there in the **house_complete** table?
+(2) How many *variables* are there in the **house_complete** table?
+
+**Response 3.1**:
+(1) 13776
+(2) 17
+
+```{r, task_3_1}
+house_complete <- overview %>%
+  left_join(distance, by = "parcel_id")
+
+glimpse(house_complete)
+```
+
+## Task 3.2
+
+Set the random seed of your computer to **2022** via **set.seed()**.
+
+Then, create a new data table named **house_work** from **house_complete**.
+Pipe **house_complete** into **slice_sample()** with **prop** set to **0.9**.
+
+**Question 3.2**: Answer these questions:
+(1) How many *observations* are there in the **house_work** table?
+(2) How many *variables* are there in the **house_work** table?
+
+**Response 3.2**:
+(1) 12398
+(2) 17
+
+```{r, task_3_2}
+set.seed(2022)
+
+house_work <- house_complete %>%
+  slice_sample(prop = 0.9)
+```
+
+# Task 4: Examine Data
+
+For this task, you will examine the data.
+
+## Task 4.1
+
+Summarize **house_work** by piping it into **select()** and excluding **-parcel_id**.
+Pipe the result to **skim()** to view a summary of the variables.
+View the output to respond to questions.
+
+**Question 4.1**: Answer these questions:
+(1) During what *month* were the most houses sold?
+(2) What was the *median* sale price of Miami homes?
+(3) What is the *average distance in feet to the ocean* of these Miami homes?
+
+**Response 4.1**: 
+(1) The month with the most houses sold is June.
+(2) The median sale price of Miami homes is $311,000.
+(3) The average distance in feet to the ocean of these Miami homes is approximately 31,646 feet.
+
+```{r, task_4_1}
+house_work %>%
+  select(-parcel_id) %>%
+  skim()
+```
+
+## Task 4.2
+
+Create a correlation plot by piping **house_work** to **select()** and selecting for all *numeric* variables excluding **parcel_id**.
+Pipe the result to **correlate()**, **rearrange()**, and **shave()**.
+Pipe the result to **rplot()** with **print_cor** set to **TRUE**.
+Update the theme of the plot by angling the *x-axis* text to *45* degrees and setting **vjust** to **0.6** via **element_text()**.
+
+**Question 4.2**: Answer these questions:
+(1) What is the correlation between *sales price* (**sale_prc**) and *total living area* (**tot_lvg_area**)?
+(2) What is the correlation between *age of homes* (**age**) and *distance to center* (**centr_dist**)?
+
+**Response 4.2**: 
+(1) .44
+(2) .27
+
+```{r, task_4_2}
+house_work %>%
+  select(where(is.numeric) & !matches("parcel_id")) %>%
+  correlate() %>%
+  rearrange() %>%
+  shave() %>%
+  rplot(print_cor = TRUE) +
+  theme(axis.text.x = element_text(angle = 45, vjust = 0.6))
+
+```
+
+## Task 4.3
+
+Create a plot to examine the data.
+Call **ggplot()** and set **house_work** as the *data* input and map **cntr_dist** to the *x-axis* and **sale_prc** to the *y-axis*.
+Add a **geom_point()** layer with **alpha** set to **0.3**.
+Add a **geom_smooth()** layer with **method** set to **"loess"**, **formula** set to **"y ~ x"**, and **se** set to **FALSE**.
+Use **scale_x_continuous()** to update the *x-axis* **labels** with **label_number()** and setting **big.mark** to **","**.
+Use **scale_y_continuous()** to update the *y-axis* **labels** with **label_dollar()** and setting **scale**to **0.000001** and **suffix** to **"M"** and setting **breaks** to **seq(0, 3000000, 500000)**.
+Adjust titles for the *x* and *y* axes to **"Distance to Center (Feet)"** and **"Sale Price (Millions)"** using **labs()**.
+Set the *theme* to **theme_clean()**.
+
+**Question 4.3**: Is the relationship between *distance to center* and *sale price* *negative* or *positive*?
+
+**Response 4.3**: Negative
+
+```{r, task_4_3}
+ggplot(house_work, aes(x = cntr_dist, y = sale_prc)) +
+  geom_point(alpha = 0.3) +
+  geom_smooth(method = "loess", formula = "y ~ x", se = FALSE) +
+  scale_x_continuous(labels = label_number(big.mark = ",")) +
+  scale_y_continuous(labels = label_dollar(scale = 0.000001, suffix = "M"), breaks = seq(0, 3000000, 500000)) +
+  labs(x = "Distance to Center (Feet)", y = "Sale Price (Millions)") +
+  theme_clean()
+
+```
+
+# Task 5: Split Data
+
+For this task, you will split the data for training and testing.
+
+## Task 5.1
+
+Perform these operations.
+
+First, set the random seed of your computer to **1795** using **set.seed()**.
+
+Second, create **house_split** using **initial_split()**.
+Set the *data* input to **house_work** and the **prop** input to **0.65**
+Print **house_split**.
+
+Third, create **house_train** by applying **training()** to **house_split**.
+Print **house_train**.
+Create **house_test** by applying **testing()** to **house_split**.
+Pring **house_test**.
+
+**Question 5.1**: Answer these questions:
+(1) How many observations are there in the *training* data?
+(2) How many observations are there in the *testing* data?
+
+**Response 5.1**: 
+(1) 8058
+(2) 4340
+
+```{r, task_5_1}
+# Set the random seed
+set.seed(1795)
+
+# Create house_split
+house_split <- initial_split(house_work, prop = 0.65)
+print(house_split)
+
+# Create house_train and house_test
+house_train <- training(house_split)
+print(house_train)
+house_test <- testing(house_split)
+print(house_test)
+
+```
+
+## Task 5.2
+
+Set the random seed of your computer to **1805** using **set.seed()**.
+Then, create **house_train_folds** with **vfold_cv()**.
+Set **house_train** as the *data* input, set **v** to **4** and set **repeats** to **2**.
+Print **house_train_folds**.
+
+**Question 5.2**: Answer these questions:
+(1) How many observations are there in the *first* *analysis* set?
+(2) How many observations are there in the *first* *assessment* set?
+
+**Response 5.2**: 
+(1) 6043
+(2) 2015
+
+```{r, task_5_2}
+# Set the random seed
+set.seed(1805)
+
+# Create house_train_folds
+house_train_folds <- vfold_cv(house_train, v = 4, repeats = 2)
+print(house_train_folds)
+
+```
+
+# Task 6: Model Recipe
+
+For this task, you will create a model recipe.
+
+## Task 6.1
+
+First, create a model recipe named **house_recipe**.
+Call **recipe()** and set the *formula* input to **sale_prc ~ .** and the *data* input to **house_train**.
+Pipe the result to **step_rm()** to remove **parcel_id**.
+Pipe the result to **step_normalize()** to standardize any *numeric* predictors.
+Pipe the result to **step_dummy()** to create dummy coded variables for any *nominal* predictors.
+
+Second, pipe **house_recipe** to **prep()**.
+Pipe the result to **bake()** with **new_data** set to **NULL**.
+Pipe the result to **print()** with **width** set to **Inf**.
+
+**Question 6.1**: Answer these questions:
+(1) How many *variables* are there in the *baked* data?
+(2) Is the *first* home *below* or *above* the average *land area* (**lnd_sqfoot**)?
+
+**Response 6.1**: 
+(1) 16
+(2) The first home is below the average land area.
+
+```{r, task_6_1}
+# Create a model recipe
+house_recipe <- recipe(sale_prc ~ ., data = house_train) %>%
+  step_rm(parcel_id) %>%
+  step_normalize(all_numeric()) %>%
+  step_dummy(all_nominal())
+
+# Prepare the recipe
+prepared_house_recipe <- prep(house_recipe)
+
+# Print the prepared recipe
+print(prepared_house_recipe, width = Inf)
+
+```
+
+# Task 7: Train Models
+
+For this task, you will train logistic regression and elastic net models.
+
+## Task 7.1
+
+Perform these operations.
+
+First, create a metrics function named **reg_metrics**.
+Call **metric_set()** and list the following metrics: **mae**, **rmse**, **rsq**, **rsq_trad**, and **ccc**.
+
+Second, create a workflow object named **lm_wflow**.
+Pipe **workflow()** to **add_model()**.
+In **add_model()**, call **linear_reg()** and pipe it to **set_engine("lm")**.
+Pipe the result of **add_model()** to **add_recipe()**.
+In **add_recipe()**, specify **house_recipe** as the input.
+
+Third, create an object named **lm_fit_folds**.
+Pipe **lm_wflow** to **fit_resamples()**.
+In **fit_resamples()**, set **resamples** to **house_train_folds** and the **metrics** to **reg_metrics**.
+
+Fourth, call **collect_metrics()** on **lm_fit_folds**.
+
+**Question 7.1**: Answer three questions:
+(1) What is the average **ccc** across the folds for these linear regression models?
+(2) What is the average **rsq** across the folds for these linear regression models?
+
+**Response 7.1**: 
+(1) .845
+(2) .732
+
+```{r, task_7_1}
+# Create a metrics function
+reg_metrics <- metric_set(mae, rmse, rsq, rsq_trad, ccc)
+
+# Create a workflow object
+lm_wflow <- workflow() %>%
+  add_model(linear_reg() %>% set_engine("lm")) %>%
+  add_recipe(house_recipe)
+
+# Fit the model using cross-validation
+lm_fit_folds <- lm_wflow %>%
+  fit_resamples(resamples = house_train_folds, metrics = reg_metrics)
+
+# Collect and print the metrics
+lm_metrics <- collect_metrics(lm_fit_folds)
+lm_metrics
+
+```
+
+## Task 7.2
+
+Perform these operations.
+
+First, create an object named **lm_fit**.
+Pipe **lm_wflow** to **fit()** and set **house_train** as the input.
+
+Second, pipe **lm_fit** to **extract_fit_parsnip()**.
+Pipe the result to **tidy()**.
+Pipe the result to **arrange()** and arrange the rows in *descending* order by **estimate**.
+Pipe the result to **print()** and set **n** to **Inf**.
+
+**Question 7.2**: Answer these questions:
+(1) What is the regression coefficient for **ocean_dist**?
+(2) What is the regression coefficient for **water_dist**?
+
+**Response 7.2**: 
+(1) .227
+(2) .046
+
+```{r, task_7_2}
+# Fit the model to the training data
+lm_fit <- lm_wflow %>%
+  fit(data = house_train)
+
+# Extract and tidy the model coefficients
+lm_coefs <- lm_fit %>%
+  extract_fit_parsnip() %>%
+  tidy() %>%
+  arrange(desc(estimate))
+
+# Print the coefficients
+print(lm_coefs, n = Inf)
+
+```
+
+## Task 7.3
+
+Perform these operations.
+
+First, create a model specification object named **elastic_net_spec**.
+Call **linear_reg()** and set **penalty** and **mixture** to **tune()**.
+Pipe the result to **set_engine("glmnet")**.
+
+Second, create a grid object named **elastic_net_grid**.
+Pipe **elastic_net_spec** to **extract_parameter_set_dials()**.
+Pipe the result to **grid_regular()** with **levels** set to **5**.
+
+Third, create a workflow object named **elastic_net_wflow**.
+Pipe **workflow()** to **add_model()** and specify **elastic_net_spec** as the input.
+Pipe the result of **add_model()** to **add_recipe()**.
+In **add_recipe()**, specify **house_recipe** as the input.
+
+Fourth, create an object named **elastic_net_tune**.
+Pipe **elastic_net_wflow** to **tune_grid()**.
+In **tune_grid()**, set **resamples** to **house_train_folds**, the **grid** to **elastic_net_grid**, and the **metrics** to **reg_metrics**.
+
+Fifth, call **autoplot()** and set **elastic_net_tune** as the *first* input and **c("rsq", "ccc", "rmse")** as the **metric** input.
+Update the theme with **theme()** and move the *legend* to the *top* of the plot.
+
+Sixth, call **collect_metrics()** on **elastic_net_tune**.
+Pipe the result to **print()** with **n** set to **30** and **width** to **Inf**.
+
+Seventh, call **show_best()**.
+Set **elastic_net_tune** as the *first* input and **"ccc"** as the **metric** input.
+
+**Question 7.3**: Answer these questions:
+(1) Examining the plot, what is approximately the *highest R-squared* (**rsq**) value?
+(2) What *penalty* and *mixture* values are the best based on average **ccc**?
+
+**Response 7.3**: 
+(1) .732
+(2) The best penalty value is approximately 0.0000000001 and the best mixture value is approximately 0.288.
+
+```{r, task_7_3}
+# Create a model specification for elastic net
+elastic_net_spec <- linear_reg(penalty = tune(), mixture = tune()) %>%
+  set_engine("glmnet")
+
+# Create a grid for the elastic net model
+elastic_net_grid <- elastic_net_spec %>%
+  extract_parameter_set_dials() %>%
+  grid_regular(levels = 5)
+
+# Create a workflow for the elastic net model
+elastic_net_wflow <- workflow() %>%
+  add_model(elastic_net_spec) %>%
+  add_recipe(house_recipe)
+
+# Tune the elastic net model
+elastic_net_tune <- elastic_net_wflow %>%
+  tune_grid(resamples = house_train_folds, grid = elastic_net_grid, metrics = reg_metrics)
+
+# Plot the tuning results
+autoplot(elastic_net_tune, metric = c("rsq", "ccc", "rmse")) +
+  theme(legend.position = "top")
+
+# Collect and print the tuning metrics
+elastic_net_tune %>%
+  collect_metrics() %>%
+  print(n = 30, width = Inf)
+
+# Show the best model
+show_best(elastic_net_tune, metric = "ccc")
+
+```
+
+## Task 7.4
+
+Perform these operations.
+
+First, create a workflow object named **elastic_net_wflow_final**.
+Pipe **elastic_net_wflow** to **finalize_workflow()**.
+Inside of **finalize_workflow()**, call **select_best()** and set **elastic_net_tune** as the *first* input and **"ccc"** as the **metric** input.
+
+Second, create an object named **elastic_net_fit**.
+Pipe **elastic_net_wflow_final** to **fit()** and set **house_train** as the input.
+
+Second, pipe **elastic_net_fit** to **extract_fit_parsnip()**.
+Pipe the result to **tidy()**.
+Pipe the result to **arrange()** and arrange the rows in *descending* order by **estimate**.
+Pipe the result to **print()** and set **n** to **Inf**.
+
+**Question 7.4**: Answer these questions:
+(1) What is the regression coefficient for **airplane_noise_Yes**?
+(2) What is the regression coefficient for **spec_feat_val**?
+
+**Response 7.4**: 
+(1) -.259
+(2) .120
+
+```{r, task_7_4}
+### create final workflow
+## save as object
+elastic_net_wflow_final <- elastic_net_wflow %>%
+  ## finalize workflow
+  finalize_workflow(
+    # hyperparameters
+    select_best(
+      # results
+      elastic_net_tune,
+      # metric
+      metric = "ccc"
+    )
+  )
+
+# Fit the final model
+elastic_net_fit <- elastic_net_wflow_final %>%
+  fit(data = house_train)
+
+# Extract and tidy the final model coefficients
+elastic_net_coefs <- elastic_net_fit %>%
+  extract_fit_parsnip() %>%
+  tidy() %>%
+  arrange(desc(estimate))
+
+# Print the coefficients
+print(elastic_net_coefs, n = Inf)
+
+```
+
+## Task 7.5
+
+Perform these operations.
+
+First, create a model specification object named **rf_spec**.
+Call **rand_forest()** and set **mode** to **"regression"**, **mtry** to **tune()**, **trees** to **500**, and **min_n** to **tune()**.
+Pipe the result to **set_engine("ranger")** and set **importance** to **"impurity"**.
+
+Second, create a grid object named **rf_grid**.
+Call **grid_regular()**.
+Inside of **grid_regular()**, call **mtry(c(2, 10))**, **min_n(c(5, 30))**, and set **levels** to **3**.
+
+Third, create a workflow object named **rf_wflow**.
+Pipe **workflow()** to **add_model()** and specify **rf_spec** as the input.
+Pipe the result of **add_model()** to **add_recipe()**.
+In **add_recipe()**, specify **house_recipe** as the input.
+
+Fourth, set-up the timer for parallel processing by calling **tic()**.
+Then, create **n_cores** with **availableCores()**.
+Then, call **registerDoFuture()**.
+Then, create **clust_work** by calling **makeClusterPSOCK()** and setting **n_cores** as the *first* input and setting **autoStop** to **TRUE**.
+Then, call **plan(cluster, workers = clust_work)**.
+Then, create an object named **rf_tune**.
+Pipe **rf_wflow** to **tune_grid()**.
+In **tune_grid()**, set **resamples** to **house_train_folds**, the **grid** to **rf_grid**, and the **metrics** to **reg_metrics**.
+Then, call **plan(sequential)**.
+Then, close the timer with **toc()**.
+
+Fifth, call **autoplot()** and set **rf_tune** as the *first* input and **c("rsq", "ccc", "rmse")** as the **metric** input.
+Update the theme with **theme()** and move the *legend* to the *top* of the plot.
+
+Sixth, call **collect_metrics()** on **rf_tune**.
+Pipe the result to **print()** with **n** set to **30** and **width** to **Inf**.
+
+Seventh, call **show_best()**.
+Set **rf_tune** as the *first* input and **"ccc"** as the **metric** input.
+
+**Question 7.5**: Answer these questions:
+(1) Examining the plot, what is approximately the *highest R-squared* (**rsq**) value?
+(2) What *number of features* (**mtry**) and *minimal number of observations* (**min_n**) are the best based on average **ccc**?
+
+**Response 7.5**: 
+(1) .900
+(2) .942
+
+```{r, task_7_5}
+# Set random seed
+set.seed(1805)
+
+# Create model specification for random forest
+rf_spec <- 
+  rand_forest(mode = "regression", mtry = tune(), trees = 500, min_n = tune()) %>%
+  set_engine("ranger", importance = "impurity")
+
+# Create grid for random forest
+rf_grid <- grid_regular(
+  # number of features
+  mtry(
+    # range
+    c(2, 10)
+  ),
+  # number of units
+  min_n(
+    # range
+    c(5, 30)
+  ),
+  # combinations  
+  levels = 3
+)
+
+# Create workflow for random forest
+rf_wflow <- 
+  workflow() %>%
+  add_model(rf_spec) %>%
+  add_recipe(house_recipe)
+
+# Set up parallel processing
+tic()
+n_cores <- availableCores()
+registerDoFuture()
+clust_work <- makeClusterPSOCK(n_cores, autoStop = TRUE)
+plan(cluster, workers = clust_work)
+
+# Tune the random forest model
+rf_tune <- 
+  rf_wflow %>%
+  tune_grid(resamples = house_train_folds, grid = rf_grid, metrics = reg_metrics)
+
+# Return to sequential processing
+plan(sequential)
+
+# Close the timer
+toc()
+
+# Plot and print results
+autoplot(rf_tune, metric = c("rsq", "ccc", "rmse")) +
+  theme(legend.position = "top")
+
+collect_metrics(rf_tune) %>%
+  print(n = 30, width = Inf)
+
+show_best(rf_tune, metric = "ccc")
+```
+
+## Task 7.6
+
+Perform these operations.
+
+First, create a workflow object named **rf_wflow_final**.
+Pipe **rf_wflow** to **finalize_workflow()**.
+Inside of **finalize_workflow()**, call **select_best()** and set **rf_tune** as the *first* input and **"ccc"** as the **metric** input.
+
+Second, create an object named **rf_fit**.
+Pipe **rf_wflow_final** to **fit()** and set **house_train** as the input.
+
+Second, pipe **rf_fit** to **extract_fit_parsnip()**.
+Pipe the result to **vip()**.
+
+**Question 7.6**: Answer these questions:
+(1) Which predictor is *first most* important?
+(2) Which prediction is *second most* important?
+
+**Response 7.6**: 
+(1) tot_living_area
+(2) ocean_distance
+
+```{r, task_7_6}
+# Create final workflow object
+rf_wflow_final <- rf_wflow %>%
+  finalize_workflow(
+    select_best(
+      rf_tune,
+      metric = "ccc"
+    )
+  )
+
+# Fit the final model
+rf_fit <- rf_wflow_final %>%
+  fit(data = house_train)
+
+# Extract feature importance and visualize
+rf_fit %>%
+  extract_fit_parsnip() %>%
+  vip()
+
+
+```
+
+# Task 8: Test Models
+
+For this task, you will evaluate estimated models on the testing data.
+
+## Task 8.1
+
+Perform these operations.
+
+First, create a data table object named **lm_pred**.
+Call **predict()** and set **lm_fit** as the *model* input and **house_test** as the **new_data** input.
+Pipe the result to **rename()** and rename **.pred** to **lm_pred**.
+
+Second, create a data table object named **elastic_net_pred**.
+Call **predict()** and set **elast_net_fit** as the *model* input and **house_test** as the **new_data** input.
+Pipe the result to **rename()** and rename **.pred** to **elastic_net_pred**.
+
+Third, create a data table object named **rf_pred**.
+Call **predict()** and set **rf_fit** as the *model* input and **house_test** as the **new_data** input.
+Pipe the result to **rename()** and rename **.pred** to **rf_pred**.
+
+Fourth, create a data table object named **house_test_pred**.
+Pipe **house_test** to **select()** and select **sale_prc**.
+Pipe the result to **bind_cols()** and set **lm_pred**, **elastic_net_pred**, and **rf_pred** as inputs.
+
+Fifth, print a table of metrics on the models by calling **map()**.
+As the first input to **map()**, call **set_names()**.
+Inside of **set_names()**, call **house_test_pred**, then pipe it to **select()** to remove **sale_prc** followed by a pipe to **names()**.
+As the second input to **map()**, call **metrics()** with **data** set **staff_test_pred**, **truth** set to **sale_prc**, and the **estimate** set to **all_of(.x)**.
+Pipe the result to **list_rbind()** with **names_to** set to **"model"**.
+Pipe the result to **pivot_wider()** and set **id_cols** to **model**, **names_from** to **.metric**, and **values_from** to **.estimate**.
+
+**Question 8.1**: Answer these questions:
+(1) What is the *mean absolute error* (**mae**) of the *elastic net* model?
+(2) Irrespective of metric, which model performs the best?
+
+**Response 8.1**: 
+(1) WRITE YOUR RESPONSE HERE
+(2) WRITE YOUR RESPONSE HERE
+
+```{r, task_8_1}
+### linear model
+## save
+lm_pred <- predict(
+  # fitted model
+  lm_fit,
+  # test data
+  new_data = house_test
+) %>% 
+  ## rename
+  rename(lm_pred = .pred)
+
+# Create a data table object for elastic net model predictions
+elastic_net_pred <- predict(elastic_net_fit, new_data = prepared_test_data) %>%
+  rename(elastic_net_pred = .pred)
+
+# Create a data table object for random forest model predictions
+rf_pred <- predict(rf_fit, new_data = prepared_test_data) %>%
+  rename(rf_pred = .pred)
+
+# Create a data table object for house_test with predictions
+house_test_pred <- house_test %>%
+  select(sale_prc) %>%
+  bind_cols(lm_pred, elastic_net_pred, rf_pred)
+
+# Print a table of metrics on the models
+metrics_results <- map(set_names(house_test_pred %>% select(-sale_prc) %>% names()), 
+                       ~ metrics(data = house_test_pred, truth = sale_prc, estimate = all_of(.x))) %>%
+  list_rbind(names_to = "model") %>%
+  pivot_wider(id_cols = model, names_from = .metric, values_from = .estimate)
+
+print(metrics_results)
+
+```
+
+## Task 8.2
+
+Perform these operations.
+
+First, create a data table named **house_test_pred_long**.
+Pipe **house_test_pred** to **pivot_longer()**.
+Inside of **pivot_longer()** set **cols** to **lm_pred:rf_pred**, **names_to** to **"model"**, and **values_to** to **"pred"**.
+Pipe the result to **mutate()** and convert **model** to a *factor* variable with **as_factor()**.
+
+Second, create a plot named **pred_plot**.
+Call **ggplot()** and set **house_test_pred_long** as the *data* input and map **pred** to the *x-axis*, and **sale_prc** to the *y-axis*.
+Add a **geom_point()** layer and set to **alpha** to **0.25**.
+Add a first **geom_abline()** and set **lty** to **1**, **color** to **"red"**, and **linewidth** to **1**.
+Add facets with **facet_wrap()** and set **vars(model)** as the *first* input, **nrow** to **2**, and **labeller** to **as_labeller()**.
+Inside of **as_labeller()**, specify **set_names(c("Linear Model", "Elastic Net", "Random Forest"))** as the *first* input, and, for the *second* input, pipe **house_test_pred_long** to **pull()** to extract the **model** values and pipe the result to **levels()**.
+Use **scale_x_continuous()** to update the *y-axis* **labels** with **label_dollar()** and setting **scale**to **0.000001** and **suffix** to **"M"** and setting **breaks** to **seq(0, 3000000, 500000)**.
+Use **scale_y_continuous()** to update the *y-axis* **labels** with **label_dollar()** and setting **scale**to **0.000001** and **suffix** to **"M"** and setting **breaks** to **seq(0, 3000000, 500000)**.
+Adjust titles for the *x* and *y* axes to **"Predicted Sale Price (Millions)"** and **"Observed Sale Price (Millions)"** using **labs()**.
+
+View **pred_plot**.
+
+**Question 8.2**: Which model's predicted sale prices most closely match the observed sale prices?
+
+**Response 8.2**: WRITE YOUR RESPONSE HERE
+
+```{r, task_8_2}
+# Create long format for plotting
+house_test_pred_long <- house_test_pred %>%
+  pivot_longer(cols = lm_pred:rf_pred, names_to = "model", values_to = "pred") %>%
+  mutate(model = as_factor(model))
+
+# Create the plot
+pred_plot <- ggplot(house_test_pred_long, aes(x = pred, y = sale_prc)) +
+  geom_point(alpha = 0.25) +
+  geom_abline(lty = 1, color = "red", linewidth = 1) +
+  facet_wrap(~model, nrow = 2, labeller = as_labeller(set_names(c("Linear Model", "Elastic Net", "Random Forest")) %>%
+                                                     set_names(levels(house_test_pred_long$model)))) +
+  scale_x_continuous(labels = label_dollar(scale = 0.000001, suffix = "M"), breaks = seq(0, 3000000, 500000)) +
+  scale_y_continuous(labels = label_dollar(scale = 0.000001, suffix = "M"), breaks = seq(0, 3000000, 500000)) +
+  labs(x = "Predicted Sale Price (Millions)", y = "Observed Sale Price (Millions)")
+
+# View the plot
+print(pred_plot)
+
+```
+
+# Task 9: Create Database
+
+Create a new database connection named **miami_con_update**.
+Call **dbConnect()** and use **SQLite()** as the *driver* input and use **here()** to navigate to the **data** folder of the project directory and specify a new database file named **"miami_housing_update.sqlite"**.
+
+Copy the existing database by calling **sqliteCopyDatabase()**.
+Inside of **sqliteCopyDatabase()**, set **miami_con** and **miami_con_update** as the inputs.
+
+Copy the **house_complete** to the new database by calling **copy_to()**.
+Inside of **copy_to()**, set **miami_con_update** as the database connection input, set **house_complete** as the data table input, name the database table "complete", set **temporary** to **FALSE**, and set **analyze** to **FALSE**.
+
+Check that the **"complete"** table exists in the database.
+Pipe **miami_con_update** to **tbl()** and set **"complete"** as the input.
+
+Disconnect from both databases.
+Call **dbDisconnect()** twice to disconnect from **miami_con** and **miami_con_update**.
+
+```{r, task_9}
+# Create a new database connection
+miami_con_update <- dbConnect(SQLite(), here::here("data", "miami_housing_update.sqlite"))
+
+# Copy the existing database
+sqliteCopyDatabase(miami_con, miami_con_update)
+
+# Copy the house_complete table to the new database
+copy_to(miami_con_update, house_complete, name = "complete", temporary = FALSE, analyze = FALSE)
+
+# Check if the "complete" table exists in the new database
+miami_con_update %>%
+  tbl("complete") %>%
+  glimpse()
+
+# Disconnect from both databases
+dbDisconnect(miami_con)
+dbDisconnect(miami_con_update)
+```
+
+# Task 10: Save Plots
+
+Save the **pred_plot** object as file named **"pred.png"** in the **"plots"** folder using **ggsave()** and **here()**.
+Use a width of *8.1 inches* and a height of *5 inches*.
+
+```{r, task_10}
+### save plot
+## call function
+ggsave(
+  ## file path
+  here(
+    # folder
+    "plots",
+    # file
+    "pred.png"
+  ),
+  ## plot object
+  plot = pred_plot,
+  ## units
+  units = "in",
+  ## width
+  width = 8.1,
+  ## height
+  height = 5
+)
+```
+
+# Task 11: Conceptual Questions
+
+For your last task, you will respond to conceptual questions based on the conceptual lectures for this week.
+
+**Question 11.1**: For regression (i.e., continuous outcome) prediction problems, how are predictions calculated for decision trees?
+
+**Response 11.1**: WRITE YOUR RESPONSE HERE
+
+**Question 11.2**: How are random forests related to decision trees?
+
+**Response 11.2**: WRITE YOUR RESPONSE HERE
+
+**Question 11.3**: What are *two* general advantages of using random forests for predictions?
+
+**Response 11.3**: WRITE YOUR RESPONSE HERE

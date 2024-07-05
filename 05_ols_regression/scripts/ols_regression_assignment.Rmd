@@ -1,0 +1,775 @@
+---
+title: "Assignment: OLS Regression"
+author: "Jon Doretti"
+date: "`r lubridate::now(tzone = 'America/Chicago')`"
+output:
+  html_document:
+    toc: TRUE
+    toc_depth: 2
+    toc_float: TRUE
+    theme: yeti
+    highlight: zenburn
+    df_print: paged
+    code_folding: show
+editor_options:
+  chunk_output_type: console
+---
+
+# Instructions
+
+This assignment reviews the *OLS Regression* content. 
+You will use the **ols_regression.Rmd** file I reviewed as part of the lectures for this week to complete this assignment. 
+You will *copy and paste* relevant code from that file and update it to answer the questions in this assignment. 
+You will respond to questions in each section after executing relevant code to answer a question. 
+You will submit this assignment to its *Submissions* folder on *D2L*.
+You will submit *two* files:
+
+1. this completed *R Markdown* script, and 
+2. an *HTML* rendered version of it to *D2L*.
+
+To start:
+
+First, create a folder on your computer to save all relevant files for this course. 
+If you did not do so already, you will want to create a folder named **mgt_585** that contains all of the materials for this course.
+
+Second, inside of **mgt_585**, you will create a folder to host assignments.
+You can name that folder **assignments**.
+Inside the **assignments** folder, you can create a folder for topic assignments named: **topics**.
+
+Third, inside of the **topics** folder, you will create folders for each assignment.
+You can name the folder for this assignment: **05_ols_regression**.
+
+Fourth, create two additional folders in **05_ols_regression** named **scripts**, **data**, and **plots**.
+Store this script in the **scripts** folder and the data for this assignment in the **data** folder.
+
+Fifth, go to the *File* menu in *RStudio*, select *New Project...*, choose *Existing Directory*, go to your */mgt_585/assignments/topics/05_ols_regression* folder to select it as the top-level directory for this *R Project*.  
+
+# Global Settings
+
+The first code chunk sets the global settings for the remaining code chunks in the document.
+Do *not* change anything in this code chunk.
+
+```{r, setup, include = FALSE}
+## specify echo setting for all code chunks
+knitr::opts_chunk$set(
+  # show code
+  echo = TRUE,
+  # show messages
+  message = FALSE,
+  # show warnings
+  warning = FALSE,
+  # figure dimensions
+  fig.dim = c(10, 6.2)
+)
+```
+
+# Activate Packages
+
+In this code chunk, we load the following packages:
+
+1. [here](https://here.r-lib.org);
+2. [tidyverse](https://www.tidyverse.org);
+3. [skimr](https://docs.ropensci.org/skimr/);
+4. [scales](https://scales.r-lib.org);
+5. [snakecase](https://tazinho.github.io/snakecase/);
+6. [fst](https://www.fstpackage.org);
+7. [broom](https://broom.tidymodels.org);
+8. [interactions](https://interactions.jacob-long.com);
+9. [jtools](https://jtools.jacob-long.com/index.html);
+10. [sandwich](https://sandwich.r-forge.r-project.org/index.html).
+
+Make sure you installed these packages when you reviewed the analytical lecture.
+
+We will use functions from these packages to examine the data. 
+Do *not* change anything in this code chunk.
+
+```{r, packages}
+## here for project workflow
+library(here)
+
+## tidyverse for data manipulation and plotting;
+## loads eight different libraries simultaneously
+library(tidyverse)
+
+## skimr to summarize data
+library(skimr)
+
+## scales for variable scales
+library(scales)
+
+## snakecase for naming conventions
+library(snakecase)
+
+## fst to import fst data files
+library(fst)
+
+## broom to examine output from statistical models
+library(broom) 
+
+## interactions to visualize interaction effects in regression models
+library(interactions)
+
+## jtools to summarize regression model results
+library(jtools)
+
+## sandwich for robust standard errors
+library(sandwich)
+```
+
+# Task 1: Import Data
+
+We will use the same data as in the analytical lecture: **auction.fst**.
+After you load the data, then you will execute other commands on the data.
+
+## Task 1.1
+
+Use the **read_fst()** and **here()** functions to load the data file for this working session. 
+Save the data as the object **auction_raw**. 
+
+Examine **auction_raw** with **glimpse()**.
+
+**Question 1.1**: Answer these questions:
+(1) How many *observations* are there in the *raw* data?
+(2) How many *variables* are there in the *raw* data?
+c
+**Response 1.1**: 
+(1) 627
+(2) 8
+
+```{r, task_1_1}
+# Assuming your data file is named "auction_data.fst" and is located in the working directory
+auction_raw <- read_fst(here("data", "auction.fst"))
+
+# Examine the structure of auction_raw
+glimpse(auction_raw)
+```
+
+# Task 2: Clean Data
+
+In this task, you will clean the data.
+
+## Task 2.1
+
+In one chained command, create **auction_work** from **auction_raw** by performing the following operations:
+
+1. convert the table to a *tibble* with **as_tibble()**;
+2. change variable names to snake case using **rename_with()** and **to_snake_case()**;
+3. change the values of **item** and **auction_type** to *title case* using **across()** and **str_to_title()**;
+4. convert **item** and **auction_type** to factor variables using **across()** and **as_factor()**; 
+5. recode **"Iphone"** to **"iPhone"** in **item** with **fct_recode()**;
+6. relevel **auction_type** to move **"7 Day Auction"** after the *second* position;
+7. mean-center **bid** and **open_bid** using **across()** and the correct *function* formula and name the new variables **bid_cent** and **open_bid_cent**.
+
+Examine **auction_work** with **glimpse()**.
+
+**Question 2.1**: Answer these questions:
+(1) How many many factor variables are there in the *working* data?
+(2) How do you correctly interpret the *first* value of **open_bid_cent**?
+
+**Response 2.1**: 
+(1) 2
+(2) The first value of open_bid_cent is 408.07801.This value represents the "centered" version of the open bid, which likely means that it has been adjusted by subtracting some central value (like the mean or median) from the original open_bid value.
+
+```{r, task_2_1}
+auction_work <- auction_raw %>%
+  as_tibble() %>%
+  rename_with(.fn = to_snake_case) %>%
+  mutate(across(c(item, auction_type), str_to_title)) %>%
+  mutate(across(c(item, auction_type), as_factor)) %>%
+  mutate(item = fct_recode(item, "iPhone" = "Iphone")) %>%
+  mutate(auction_type = fct_relevel(auction_type, "7 Day Auction", after = 2)) %>%
+  mutate(across(c(bid, open_bid), ~. - mean(.), .names = "{.col}_cent"))
+
+glimpse(auction_work)
+```
+
+# Task 3: Examine Data
+
+In this task, you will examine the data.
+
+## Task 3.1
+
+Pipe **auction_work** into **select()** and exclude **auction_id**.
+Pipe the result to **skim()** to view a summary of the variables.
+View the output to respond to questions.
+
+**Question 3.1**: Answer these questions:
+(1) What is the *median* value of **price**?
+(2) How many *iPhones* were auctioned?
+
+**Response 3.1**: 
+(1) 1270
+(2) 343
+
+```{r, task_3_1}
+auction_work %>%
+  select(-auction_id) %>%
+  skim()
+```
+
+## Task 3.2
+
+Pipe **auction_work** into **select()** and exclude **auction_id**.
+Pipe the result to **group_by()** to form groups by **auction_type** and **item**.
+Pipe the result to **summarize()** to compute the *mean*, *median*, and *standard deviation* of all *numeric* variables using **across()**.
+View the output to respond to questions.
+
+**Question 3.2**: Answer these questions:
+(1) What is the *mean* value of the *opening bid price* for a **5 Day Auction** and **Cartier Wristwatch**?
+(2) What is the *standard deviation* value of the *bid time* for a **7 Day Auction** and **Xbox Game Console**?
+
+**Response 3.2**: 
+(1) 1783
+(2) 6.95
+
+```{r, task_3_2}
+auction_work %>%
+  select(-auction_id) %>%
+  group_by(auction_type, item) %>%
+  summarize(across(where(is.numeric), list(mean = mean, median = median, sd = sd), .names = "{col}_{fn}"))
+
+```
+
+# Task 4: Fit Regression Model with One Predictor
+
+In this task, you will fit regression models with one predictor.
+
+## Task 4.1
+
+Estimate an OLS regression model named **mod_1** using **lm()**.
+Predict values of **price** from values of **open_bid**.
+Set the *data* input to **auction_work**.
+
+Use **glance()**, **tidy()**, and **summ()** to review the content of **mod_1**.
+
+**Question 4.1**: Answer these questions:
+(1) What is the *R-squared* for the model?
+(2) On average, how wrong are the model's predictions?
+(3) For every one-unit increase in *opening bid price* (**open_bid**), how much does the *final auction price* (**price**) increase?
+
+**Response 4.1**: 
+(1) .423 or 42.3%
+(2) 1169 or $1169
+(3) 4.78 units
+
+```{r, task_4_1}
+# Estimate the OLS regression model
+mod_1 <- lm(price ~ open_bid, data = auction_work)
+
+# Review the content of mod_1 using glance(), tidy(), and summ()
+glance(mod_1)
+tidy(mod_1)
+summ(mod_1)
+    
+```
+
+## Task 4.2
+
+Create a new data table named **mod_1_results** using **augment()**.
+Set the *model* input to **mod_1** and the *data* input to **auction_work**.
+Pipe the result to **select()** and select for **open_bid**, **price**, **price_fit = .fitted**, and **price_resid = .resid**.
+
+Print the table.
+
+**Question 4.2**: Answer these questions:
+(1) What is the *difference* between the *observed* and *fitted* value of *price* for the *first* auction?
+(2) Does the model *over* or *under* predict the actual *price* value for the *second* auction?
+(3) Does the model *over* or *under* predict the actual *price* value for the *fifth* auction?
+
+**Response 4.2**: 
+(1) 3622
+(2) 708
+(3) -608
+
+```{r, task_4_2}
+# Create mod_1_results
+mod_1_results <- augment(mod_1, data = auction_work) %>%
+  select(open_bid, price, price_fit = .fitted, price_resid = .resid)
+
+# Print the table
+print(mod_1_results)
+```
+
+## Task 4.3
+
+Create a plot named **mod_1_plot** using **effect_plot()**.
+Set **mod_1** as the *model* input and **open_bid** as the **pred** input.
+Color the regression line *blue* and include the *data points* and *standard error interval*.
+Set the *x-axis title* to **"Opening Bid Price"** and the *y-axis title* to **"Final Price"**.
+Adjust the *x-axis* and *y-axis* labels by applying **label_dollar()**.
+
+View **mod_1_plot**.
+
+**Question 4.3**: Answer these questions:
+(1) Is the *standard error* ribbon *wider* at *low* or *high* values of the *opening bid price*?
+(2) Is the *predicted* value of the *final price* *greater* or *less* than `$6,000` when the *opening bid price* is `$1,000`?
+
+**Response 4.3**: 
+(1) It is wider at higher values
+(2) Less than $6,000
+
+```{r, task_4_3}
+# Create the effect plot
+mod_1_plot <- effect_plot(
+  # model
+  mod_1,
+  # predictor
+  pred = "open_bid",
+  # line color
+  line.col = "blue",
+  # points
+  plot.points = TRUE,
+  # interval
+  ci.style = "bands",
+  # x-axis label
+  xlab = "Opening Bid Price",
+  # y-axis label
+  ylab = "Final Price"
+)
+
+# Adjust axis labels
+mod_1_plot$xlab <- label_dollar(mod_1_plot$xlab)
+mod_1_plot$ylab <- label_dollar(mod_1_plot$ylab)
+
+# View the plot
+mod_1_plot
+
+```
+
+## Task 4.4
+
+Examine the *levels* of **auction_type** by calling **auction_work**, piping to pull **auction_type**, and piping the result to **levels()**.
+
+Examine the *contrasts* of **auction_type** by calling **auction_work**, piping to pull **auction_type**, and piping the result to **contrasts()**.
+
+Estimate an OLS regression model named **mod_2** using **lm()**.
+Predict values of **price** from values of **auction_type**.
+Set the *data* input to **auction_work**.
+
+Use **glance()**, **tidy()**, and **summ()** to review the content of **mod_2**.
+
+**Question 4.4**: Answer these questions:
+(1) What is the *last* level of *auction type*?
+(2) Which level of *auction type* serves as the *referent* category?
+(3) What is the *mean difference* of *final price* between the *5 day auction* and the *3 day auction*?
+(4) What is the *mean difference* of *final price* between the *7 day auction* and the *3 day auction*?
+
+**Response 4.4**: 
+(1) 7 day auction
+(2) 3 day auction
+(3) $321.12
+(4) $343.93
+
+```{r, task_4_4}
+auction_work %>%
+  pull(auction_type) %>%
+  levels()
+
+auction_work %>%
+  pull(auction_type) %>%
+  contrasts()
+
+mod_2 <- lm(price ~ auction_type, data = auction_work)
+
+# Review the content of mod_2 using glance(), tidy(), and summ()
+glance(mod_2)
+tidy(mod_2)
+## succinct summary 
+summ(mod_2)
+```
+
+## Task 4.5
+
+Create a new data table named **mod_2_results** using **augment()**.
+Set the *model* input to **mod_2** and the *data* input to **auction_work**.
+Pipe the result to **select()** and select for **auction_type**, **price**, **price_fit = .fitted**, and **price_resid = .resid**.
+
+Print the table.
+
+**Question 4.5**: Answer these questions:
+(1) Does the model *over* or *under* predict the actual *price* value for the *sixth* auction?
+(2) Does the model *over* or *under* predict the actual *price* value for the *ninth* auction?
+
+**Response 4.5**: 
+(1) The model underpredicts the actual price value for the sixth auction because the price_fit is lower than the actual price.
+(2) The model overpredicts the actual price value for the ninth auction because the price_fit is higher than the actual price.
+
+```{r, task_4_5}
+mod_2_results <- augment(mod_2, data = auction_work) %>%
+  select(auction_type, price, price_fit = .fitted, price_resid = .resid)
+
+# Print the table
+mod_2_results
+```
+
+## Task 4.6
+
+Create a plot named **mod_2_plot** using **effect_plot()**.
+Set **mod_2** as the *model* input and **auction_type** as the **pred** input.
+Color the regression line *blue* and do *not* include the *data points* but do include the *standard error interval*.
+Set the *x-axis title* to **"Auction Type"** and the *y-axis title* to **"Final Price"**.
+Adjust the *y-axis* labels by applying **label_dollar()**.
+
+View **mod_2_plot**.
+
+**Question 4.6**: Answer these questions:
+(1) Do the standard error intervals for the *3 day auction* and the *5 day auction* overlap? 
+(2) Approximately, what is the *point estimate* of the *final price* for the *5 day auction*?
+
+**Response 4.6**: 
+(1) Yes
+(2) ~$1810
+
+```{r, task_4_6}
+mod_2_plot <- effect_plot(
+  # model
+  mod_2,
+  # predictor
+  pred = auction_type,
+  # line color
+  line.colors = "blue",
+  # points
+  plot.points = FALSE,
+  # interval
+  interval = TRUE,
+  # x-axis label
+  x.label = "Auction Type",
+  # y-axis label
+  y.label = "Final Price"
+) +
+  ## y-axis scale
+  scale_y_continuous(
+    # labels in dollars
+    labels = label_dollar()
+  )
+
+## show plot
+mod_2_plot
+```
+
+# Task 5: Fit Regression Model with Two Predictors
+
+In this task, you will fit regression models with two predictors and explore interaction effects.
+
+## Task 5.1
+
+Calculate three set of computations.
+
+First, estimate an OLS regression model named **mod_3** using **lm()**.
+Predict values of **price** from values of **auction_type** and **open_bid_cent**.
+Set the *data* input to **auction_work**.
+Use **summ()** to view the results.
+
+Second, estimate an OLS regression model named **mod_4** using **lm()**.
+Predict values of **price** from values of **auction_type**, **open_bid_cent**, and their *interaction effect*.
+Set the *data* input to **auction_work**.
+Use **glance()**, **tidy()**, and **summ()** to review the content of **mod_4**.
+
+Third, use **glance()** to calculate the *R-squared* difference between **mod_3** and **mod_4**.
+Use **anova()** to perform an *F-test* on the change in *R-squared*.
+
+**Question 5.1**: Answer these questions:
+(1) What is the *interaction* estimate between *centered opening bid price* and the *5 day auction*?
+(2) What is the *R-squared difference* between the two models?
+(3) What is the *F-value* of the *R-squared difference*?
+
+**Response 5.1**: 
+(1) -.503
+(2) .000654
+(3) .3589
+
+```{r, task_5_1}
+# First computation
+mod_3 <- lm(price ~ auction_type + open_bid_cent, data = auction_work)
+summ(mod_3)
+
+# Second computation
+mod_4 <- lm(price ~ auction_type * open_bid_cent, data = auction_work)
+glance(mod_4)
+tidy(mod_4)
+summ(mod_4)
+
+# Third computation
+glance(mod_4)$r.squared - glance(mod_3)$r.squared
+
+anova(mod_3, mod_4)
+```
+
+## Task 5.2
+
+Create a new data table named **mod_4_results** using **augment()**.
+Set the *model* input to **mod_4** and the *data* input to **auction_work**.
+Pipe the result to **select()** and select for **open_bid_cent**, **auction_type**, **price**, **price_fit = .fitted**, and **price_resid = .resid**.
+
+Print the table.
+
+**Question 5.2**: Answer these questions:
+(1) What is the *difference* between the *observed* and *fitted* value of *price* for the *third* auction?
+(2) Does the model *over* or *under* predict the actual *price* value for the *tenth* auction?
+
+**Response 5.2**: 
+(1) 2282
+(2) Under predicts
+
+```{r, task_5_2}
+mod_4_results <- augment(mod_4, data = auction_work) %>%
+  select(open_bid_cent, auction_type, price, price_fit = .fitted, price_resid = .resid)
+
+# Print the table
+mod_4_results
+```
+
+## Task 5.3
+
+Create a plot named **mod_4_plot** using **interact_plot()**.
+Set **mod_4** as the *model* input and **open_bid_cent** as the **pred** input and **auction_type** as the **modx** input.
+Color the regression lines with **"Set1"**, do *not* include the *data points*, and set *line thickness* to **2**.
+Set the *x-axis title* to **"Opening Bid Price"**, the *y-axis title* to **"Final Price"**, and the *legend* to **"Auction Type"**.
+Adjust the *x-axis* and *y-axis* labels by applying **label_dollar()**.
+View **mod_4_plot**.
+
+Call **sim_slopes()**.
+Set **mod_4** as the *model* input and **open_bid_cent** as the **pred** input and **auction_type** as the **modx** input.
+
+**Question 5.3**: Answer these questions:
+(1) What is the *simple slope estimate* for the *3 day auction*?
+(2) Looking at the plot, which *auction type* predicts the *highest final price* when the *centered opening bid price* is `$1,500`?
+
+**Response 5.3**: 
+(1) 5.34
+(2) ~$7,000
+
+```{r, task_5_3}
+mod_4_plot <- interact_plot(mod_4, pred = open_bid_cent, modx = auction_type, plot.points = FALSE, line.thickness = 2, x.label = "Opening Bid Price", y.label = "Final Price", legend.main = "Item", colors = "Set1")
+
+## print plot
+mod_4_plot
+
+sim_slopes(mod_4, pred = open_bid_cent, modx = auction_type)
+```
+
+## Task 5.4
+
+Calculate three set of computations.
+
+First, estimate an OLS regression model named **mod_5** using **lm()**.
+Predict values of **price** from values of **bid_cent** and **open_bid_cent**.
+Set the *data* input to **auction_work**.
+Use **summ()** to view the results.
+
+Second, estimate an OLS regression model named **mod_6** using **lm()**.
+Predict values of **price** from values of **bid_cent**, **open_bid_cent**, and their *interaction effect*.
+Set the *data* input to **auction_work**.
+Use **glance()**, **tidy()**, and **summ()** to review the content of **mod_6**.
+
+Third, use **glance()** to calculate the *R-squared* difference between **mod_5** and **mod_6**.
+Use **anova()** to perform an *F-test* on the change in *R-squared*.
+
+**Question 5.4**: Answer these questions:
+(1) What is the *interaction* estimate between *centered bid price* and *centered opening bid price*?
+(2) What is the *R-squared difference* between the two models?
+(3) What is the *F-value* of the *R-squared difference*?
+
+**Response 5.4**:
+(1) -.00115
+(2) .03118985
+(3) 128.59
+
+```{r, task_5_4}
+mod_5 <- lm(price ~ bid_cent + open_bid_cent, data = auction_work)
+summ(mod_5)
+
+# Second computation
+mod_6 <- lm(price ~ bid_cent * open_bid_cent, data = auction_work)
+glance(mod_6)
+tidy(mod_6)
+summ(mod_6)
+
+# Third computation
+glance(mod_6)$r.squared - glance(mod_5)$r.squared
+
+
+anova(mod_5, mod_6)
+```
+
+## Task 5.5
+
+Create a new data table named **mod_6_results** using **augment()**.
+Set the *model* input to **mod_6** and the *data* input to **auction_work**.
+Pipe the result to **select()** and select for **bid_cent**, **open_bid_cent**, **auction_type**, **price**, **price_fit = .fitted**, and **price_resid = .resid**.
+
+Print the table.
+
+**Question 5.5**: Answer these questions:
+(1) What is the *difference* between the *observed* and *fitted* value of *price* for the *fifth* auction?
+(2) Does the model *over* or *under* predict the actual *price* value for the *seventh* auction?
+
+**Response 5.5**: 
+(1) -181
+(2) 602
+
+```{r, task_5_5}
+mod_6_results <- augment(mod_6, data = auction_work) %>%
+  select(bid_cent, open_bid_cent, auction_type, price, price_fit = .fitted, price_resid = .resid)
+
+# Print the table
+mod_6_results
+```
+
+## Task 5.6
+
+Create a plot named **mod_6_plot** using **interact_plot()**.
+Set **mod_6** as the *model* input and **bid_cent** as the **pred** input and **open_bid_cent** as the **modx** input.
+Color the regression lines with **"Set1"**, do *not* include the *data points*, and set *line thickness* to **2**.
+Set the *x-axis title* to **"Opening Bid Price"**, the *y-axis title* to **"Final Price"**, and the *legend* to **"Opening Bid Price"**.
+Adjust the *x-axis* and *y-axis* labels by applying **label_dollar()**.
+View **mod_6_plot**.
+
+Call **sim_slopes()**.
+Set **mod_6** as the *model* input and **bid_cent** as the **pred** input and **open_bid_cent** as the **modx** input.
+
+**Question 5.6**: Answer these questions:
+(1) What is the *simple slope estimate* for the *middle tercile median* of *centered opening bid price*?
+(2) Looking at the plot, which *tercile median* of *centered opening bid price* predicts the *highest final price* when the *centered bid price* is `$1,000`?
+
+**Response 5.6**: 
+(1) 1.69
+(2) 1000
+
+```{r, task_5_6}
+## call function
+mod_6_plot <- interact_plot(
+  ## specify model
+  mod_6, 
+  ## specify x-axis variable
+  pred = bid_cent, 
+  ## specify moderator variable
+  modx = open_bid_cent,
+  ## choose moderator values
+  modx.values = "terciles",
+  ## Include points
+  plot.points = FALSE,
+  ## line thickness
+  line.thickness = 2,
+  ## x-axis label
+  x.label = "Opening Bid Price", 
+  ## y-axis label
+  y.label = "Final Price", 
+  ## legend label
+  legend.main = "Opening Bid Price",
+  ## legend labels
+  modx.labels = c(
+    # lower tercile label
+    "Lower Tercile Median",
+    # middle tercile label
+    "Middle Tercile Median",
+    # upper tercile label
+    "Upper Tercile Median"
+  ),
+  ## colors
+  colors = "Set1"
+) +
+  ## x-axis scale
+  scale_x_continuous(
+    # breaks
+    breaks = seq(-6, 2, 1)
+  ) +
+  ## change y-axis scale
+  scale_y_continuous(
+    # change labels to dollars
+    labels = label_dollar()
+  ) +
+  ## update theme
+  theme(
+    # legend to bottom
+    legend.position = "bottom"
+  )
+
+## print plot
+mod_6_plot
+
+sim_slopes(mod_6, pred = bid_cent, modx = open_bid_cent)
+```
+
+# Task 6: Save Objects
+
+For this task, you will save the plots and the working data.
+First, save the working data, **auction_work** as the data file: **auction_work.fst** in the **data** folder of the project directory using **write_fst()**.
+
+Second, save the three plot objects as **png** files in the **plots** folder of the project directory using the combination of **walk()**, **ls()**, **ggsave()**, **here()**, **str_glue()**, **str_remove()**, and **get()**.
+Use a width of *8.1 inches* and a height of *5 inches*.
+
+```{r, task_6}
+write_fst(
+  ## name of object
+  auction_work,
+  ## use here() to export data to project directory
+  here(
+    # folder
+    "data", 
+    # file
+    "auction_work.fst"
+  )
+)
+
+### save plots
+## call function
+walk(
+  ## vector of plots
+  ls(
+    # name pattern
+    pattern = "plot"
+  ),
+  ## function
+  function(plot_inp) {
+    ### save plot
+    ## call function
+    ggsave(
+      ## file path
+      here(
+        # folder
+        "plots",
+        # file
+        str_glue(
+          # remove string
+          str_remove(
+            # string
+            plot_inp,
+            # pattern
+            "_plot"
+          ),
+          # extension
+          ".png"
+        )
+      ),
+      ## plot object
+      plot = get(plot_inp),
+      ## units
+      units = "in",
+      ## width
+      width = 8.1,
+      ## height
+      height = 5
+    )
+  }
+)
+```
+
+# Task 7: Conceptual Questions
+
+For your last task, you will respond to conceptual questions based on the conceptual lectures for this week.
+
+**Question 7.1**: What is the purpose of the least-squares criterion in regression?
+
+**Response 7.1**: 
+The least-squares criterion in regression is used to find the best-fitting line through a set of data points. It minimizes the sum of the squares of the differences between the observed values and the values predicted by the regression model. In other words, it finds the line that minimizes the overall distance between the data points and the line.
+
+**Question 7.2**: What is a residual value from an OLS regression model?
+
+**Response 7.2**:
+A residual value from an OLS (Ordinary Least Squares) regression model is the difference between the observed value of the dependent variable and the value predicted by the regression model. In other words, it is the vertical distance between the data point and the regression line.
+
+**Question 7.3**: What does an interaction effect of two predictors indicate about the relationship between them and the outcome?
+
+**Response 7.3**:
+An interaction effect of two predictors in a regression model indicates that the effect of one predictor on the outcome variable depends on the value of the other predictor. In other words, the relationship between one predictor and the outcome variable is different depending on the value of the other predictor. This interaction effect can reveal more complex relationships in the data that cannot be captured by considering each predictor separately.

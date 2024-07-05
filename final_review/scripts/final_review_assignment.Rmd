@@ -1,0 +1,1106 @@
+---
+title: "Assignment: Final Review"
+author: "Jon Doretti"
+date: "`r lubridate::now(tzone = 'America/Chicago')`"
+output:
+  html_document:
+    toc: TRUE
+    toc_depth: 2
+    toc_float: TRUE
+    theme: yeti
+    highlight: zenburn
+    df_print: paged
+    code_folding: show
+editor_options:
+  chunk_output_type: console
+---
+
+# Instructions
+
+This assignment reviews the *OLS Regression*, *Logistic Regression*, *Elastic Nets*, and *Random Forests* content. 
+You will use the *R Markdown* scripts you completed for assignments on those topics to complete this review assignment. 
+You will *copy and paste* relevant code from those files and update code to answer the questions in this assignment. 
+You will respond to questions in each section after executing relevant code to answer a question. 
+You will submit this assignment to its *Submissions* folder on *D2L*.
+You will submit *two* files:
+
+1. this completed *R Markdown* script, and 
+2. an *HTML* rendered version of it to *D2L*.
+
+To start:
+
+First, create a folder on your computer to save all relevant files for this course. 
+If you did not do so already, you will want to create a folder named **mgt_585** that contains all of the materials for this course.
+
+Second, inside of **mgt_585**, you will create a folder to host assignments.
+You can name that folder **assignments**.
+Inside the **assignments** folder, you can create a folder for topic assignments named: **reviews**.
+
+Third, inside of the **reviews** folder, you will create folders for each assignment.
+You can name the folder for this assignment: **02_final_review**.
+
+Fourth, create two additional folders in **02_final_review** named **scripts**, **data**, and **plots**.
+Store this script in the **scripts** folder and the data for this assignment in the **data** folder.
+
+Fifth, go to the *File* menu in *RStudio*, select *New Project...*, choose *Existing Directory*, go to your */mgt_585/assignments/reviews/02_final_review* folder to select it as the top-level directory for this *R Project*.  
+
+# Global Settings
+
+The first code chunk sets the global settings for the remaining code chunks in the document.
+Do *not* change anything in this code chunk.
+
+```{r, setup, include = FALSE}
+## specify echo setting for all code chunks
+knitr::opts_chunk$set(
+  # show code
+  echo = TRUE,
+  # show messages
+  message = FALSE,
+  # show warnings
+  warning = FALSE,
+  # figure dimensions
+  fig.dim = c(10, 6.2)
+)
+```
+
+# Task 1: Activate Packages
+
+Unlike previous assignments, you will specify the packages to load for this *Midterm Review*.
+Make sure to include comments about the packages.
+Activate the following packages:
+
+1. [here](https://here.r-lib.org);
+2. [tidyverse](https://www.tidyverse.org);
+3. [fst](https://www.fstpackage.org);
+4. [lubridate](https://lubridate.tidyverse.org);
+5. [skimr](https://docs.ropensci.org/skimr/);
+6. [scales](https://scales.r-lib.org);
+7. [snakecase](https://tazinho.github.io/snakecase/);
+8. [interactions](https://interactions.jacob-long.com);
+9. [jtools](https://jtools.jacob-long.com/index.html);
+10. [ggthemes](https://jrnold.github.io/ggthemes/);
+11. [tidymodels](https://www.tidymodels.org);
+12. [glmnet](https://glmnet.stanford.edu);
+13. [DBI](https://dbi.r-dbi.org);
+14. [RSQLite](https://rsqlite.r-dbi.org);
+15. [ranger](https://cran.r-project.org/web/packages/ranger/ranger.pdf);
+16. [vip](https://koalaverse.github.io/vip/index.html);
+17. [tictoc](https://cran.r-project.org/web/packages/tictoc/tictoc.pdf);
+18. [parallelly](https://parallelly.futureverse.org);
+19. [doFuture](https://dofuture.futureverse.org).
+
+You will use functions from these packages to import the data, examine the data, summarize the data, calculate variable relations, and visualize the data. 
+
+```{r, task_1}
+# Activate packages
+library(here)        # For managing file paths
+library(tidyverse)   # For data manipulation and visualization
+library(fst)         # For efficient reading and writing of data frames
+library(lubridate)   # For working with dates and times
+library(skimr)       # For summary statistics
+library(scales)       # For formatting numbers and dates in plots
+library(snakecase)   # For converting variable names to snake case
+library(interactions) # For creating interaction terms in models
+library(jtools)       # For additional model summaries and visualizations
+library(ggthemes)     # For additional ggplot2 themes
+library(tidymodels)   # For modeling and machine learning
+library(glmnet)       # For elastic net models
+library(DBI)          # For database interface
+library(RSQLite)      # For SQLite database operations
+library(ranger)       # For random forest models
+library(vip)          # For variable importance plots
+library(tictoc)       # For timing code execution
+library(parallelly)   # For parallel processing
+library(doFuture)     # For parallel processing with foreach
+
+
+```
+
+# Task 2: Import and Clean Data
+
+You will examine data on loan decisions made by a bank.
+Each observation represents a bank customer.
+For this task, you will import the data from your project directory and clean it for subsequent analytical work.
+
+## Task 2.1
+
+Create an object named **loan_raw** by importing **loan.fst** from the **data** folder of the project directory using **read_fst()** and **here()**. 
+Apply **glimpse()** to **loan_raw**.
+
+You can copy what you did for **Task 1.1** in your **ols_regression_assignment.Rmd** script as a basis for the code for this task.
+
+**Question 2.1**: Answer these questions:
+(1) How many *observations* are there in the data?
+(2) How many *variables* are there in the data?
+
+**Response 2.1**: 
+(1) 480
+(2) 13
+
+```{r, task_2_1}
+# Set the working directory to the project directory
+setwd(here())
+
+# Import the data
+loan_raw <- read_fst("data/loan.fst")
+
+# Display the structure of the data
+glimpse(loan_raw)
+```
+
+## Task 2.2
+
+Create a new object named **loan_work** from **loan_raw** by performing these operations in one chained command:
+
+1. convert the table to a *tibble* with **as_tibble()**;
+2. use **rename_with()** and **to_snake_case()** to rename variables to snake case;
+3. use **across()** to change all *character* variables and **credit_history** to *factor* variables by setting **.cols** to **c(where(is.character), credit_history)** and **.fns** to **as_factor**;
+4. use **fct_recode()** to recode the levels of **credit_history** where **"Yes" = "1"** and **"No" = "0"**;
+5. use **fct_recode()** to recode a single level of **property_area** where **"Semi-Urban" = "Semiurban"**.
+6. use **fct_recode()** to recode the levels of **loan_status** where **"Yes" = "Y"** and **"No" = "N"**;
+7. convert **dependents** to an *ordered factor* via **factor(dependents, levels = c("0", "1", "2", "3+"), ordered = TRUE)**;
+8. use **across()** and specify the **.cols** input as **c(applicant_income, loan_amount)** and **.fns** input as __~ .x * 1000__.
+
+Apply **glimpse()** to preview **loan_work**.
+
+You can copy what you did for **Task 2.1** in your **ols_regression_assignment.Rmd** script as a basis for the code for this task.
+
+**Question 2.2**: How many *nominal or ordered factor* variables are there in the cleaned data?
+
+**Response 2.2**: 9
+
+```{r, task_2_2}
+# Create loan_work
+loan_work <- loan_raw %>%
+  as_tibble() %>%
+  rename_with(~ to_snake_case(.), everything()) %>%
+  mutate(across(c(where(is.character), credit_history), as_factor),
+         credit_history = fct_recode(credit_history, "0" = "No", "1" = "Yes"),
+         property_area = fct_recode(property_area, "Semiurban" = "Semi-Urban"),
+         loan_status = fct_recode(loan_status, "N" = "No", "Y" = "Yes"),
+         dependents = factor(dependents, levels = c("0", "1", "2", "3+"), ordered = TRUE),
+         across(c(applicant_income, loan_amount), ~ . * 1000))
+
+# Display the structure of the data
+glimpse(loan_work)
+
+```
+
+# Task 3: Examine Data
+
+You will now examine the data.
+
+## Task 3.1
+
+Pipe **loan_work** into **select()** and exclude **loan_id**.
+Pipe the result to **skim()** to view a summary of the variables.
+View the output to respond to questions.
+
+You can copy what you did for **Task 3.1** in your **ols_regression_assignment.Rmd** script as a basis for the code for this task.
+
+**Question 3.1**: Answer these questions:
+(1) How many bank customers are *married*?
+(2) What is the *median loan amount*?
+
+**Response 3.1**: 
+(1) 311
+(2) 246,217
+
+```{r, task_3_1}
+loan_work %>%
+  select(-loan_id) %>%
+  skim()
+```
+
+## Task 3.2
+
+Summarize the data by piping **loan_work** into **select()** and exclude **loan_id**.
+Pipe the result to **group_by()** to form groups by **loan_status** and **credit_history**.
+Pipe the result to **summarize()** to compute the *mean*, *median*, and *standard deviation* of all *numeric* variables using **across()**.
+View the output to respond to questions.
+
+You can copy what you did for **Task 3.2** in your **ols_regression_assignment.Rmd** script as a basis for the code for this task.
+
+**Question 3.2**: Answer these questions:
+(1) What is the *median monthly applicant income* for bank customers who *received a loan with no credit history*?
+(2) What is the *standard deviation of co-applicant income* for bank customers who *received a loan with credit history*?
+
+**Response 3.2**: 
+(1) 6400
+(2) 1049
+
+```{r, task_3_2}
+loan_work %>%
+  select(-loan_id) %>%
+  group_by(loan_status, credit_history) %>%
+  summarize(across(where(is.numeric), list(mean = mean, median = median, sd = sd)), .groups = "drop")
+```
+
+# Task 4: Ordinary Least-Squares Regression
+
+For this, you estimate OLS regression models.
+
+## Task 4.1
+
+Examine the *levels* and *contrasts* of **property_area** from **loan_work**.
+Use the combination of **pull()**, **levels()**, and **contrasts()** to examine the information.
+
+Estimate an additive OLS regression model named **mod_1** where observed values of **loan_amount**  (i.e., loan amount requested by customer) are predicted from observed values of **applicant_income** (i.e., how much a customer earns per month) and **property_area** (i.e., whether the property location is rural, semi-urban, or urban).
+Apply **summ()** to **mod_1**.
+
+You can copy a part of what you did for **Task 4.4** and **Task 5.1** in your **ols_regression_assignment.Rmd** script as a basis for the code for this task.
+
+**Question 4.1**: Answer these questions:
+(1) Which category of **property_area** is the *referent* category?
+(2) What is the difference between loan amounts for *urban* versus *rural* locations?
+
+**Response 4.1**: 
+(1) Rural
+(2) 208,222.52
+
+```{r, task_4_1}
+# Examine levels and contrasts of property_area
+levels_property_area <- levels(loan_work$property_area)
+contrasts_property_area <- contrasts(loan_work$property_area)
+
+# Estimate an additive OLS regression model
+mod_1 <- lm(loan_amount ~ applicant_income + property_area, data = loan_work)
+
+# Summarize the model
+summ(mod_1)
+
+```
+
+## Task 4.2
+
+Estimate an interaction OLS regression model named **mod_2** where observed values of **loan_amount** are predicted from observed values of **applicant_income**, **property_area**, and their interaction.
+Apply **summ()** to **mod_2**.
+
+Calculate the change in *r-squared* using **glance()** applied to both models.
+Calculate the *F-test* for the change in *R-squared* using **anova()**.
+
+You can copy a part of what you did for **Task 5.1** in your **ols_regression_assignment.Rmd** script as a basis for the code for this task.
+
+**Question 4.2**: Answer these questions:
+(1) What is the **applicant_income:property_areaUrban** regression coefficient?
+(2) What is the *R-squared* difference between the two models?
+(3) What is the the *F-value* of the R-squared difference?
+
+**Response 4.2**: 
+(1) 29.12
+(2) .08
+(3) 86.241
+
+```{r, task_4_2}
+# Estimate an interaction OLS regression model
+mod_2 <- lm(loan_amount ~ applicant_income * property_area, data = loan_work)
+
+# Summarize the model
+summ(mod_2)
+
+# Calculate the change in R-squared
+r_squared_change <- glance(mod_2)$r.squared - glance(mod_1)$r.squared
+
+# Calculate the F-test for the change in R-squared
+f_test <- anova(mod_1, mod_2)
+f_test
+
+```
+
+## Task 4.3
+
+Create a plot named **mod_2_plot**.
+Use **interact_plot()** to plot **mod_2**.
+Set **pred** to **applicant_income** and **modx** to **property_area**.
+Do *not* plot the data points and set the *line thickness* to **2**.
+Set **x.label** to **Monthly Income**.
+Set **y.label** to **Loan Amount**.
+Set **legend.main** to **Property Area**.
+Set **colors** to **red**, **blue**, and **green**.
+Change the *x-axis* and *y-axis* labels to dollars using **scale_x_continuous()** and **scale_y_continuous()**, respectively, with **label_dollar()**.
+Display the plot.
+
+Calculate the simple slopes of **mod_2** using **sim_slopes()**.
+Set **pred** to **applicant_income** and **modx** to **property_area**.
+
+You can copy a part of what you did for **Task 5.3** in your **ols_regression_assignment.Rmd** script as a basis for the code for this task.
+
+**Question 4.3**: Answer these questions:
+(1) Looking at the plot, when the *monthly income* for an individual is `$15,000`, what *property area* is predicted to have the *highest loan amount*?
+(2) What is the *value* of the simple slope for an *urban* property?
+
+**Response 4.3**: 
+(1) Urban
+(2) 35.99
+
+```{r, task_4_3}
+# Create the interaction plot
+mod_2_plot <- interact_plot(mod_2, pred = applicant_income, modx = property_area, show.data = FALSE, line.size = 2,
+                             x.label = "Monthly Income", y.label = "Loan Amount", legend.main = "Property Area",
+                             colors = c("red", "blue", "green")) +
+  scale_x_continuous(labels = label_dollar()) +
+  scale_y_continuous(labels = label_dollar())
+
+# Display the plot
+mod_2_plot
+
+# Calculate the simple slopes
+sim_slopes(mod_2, pred = applicant_income, modx = property_area)
+```
+
+# Task 5: Logistic Regression
+
+For this task, you will estimate logistic regression models.
+
+## Task 5.1
+
+Estimate a logistic regression model named **mod_3** where observed values of **loan_status** (i.e., whether customers received a loan from the bank) are predicted from observed values of are predicted from observed values of **applicant_income** and **property_area**.
+Apply **summ()** to **mod_3**.
+
+You can copy a part of what you did for **Task 5.1** in your **logistic_regression_assignment.Rmd** script as a basis for the code for this task.
+
+**Question 5.1**: Answer these questions:
+(1) What is the logit regression coefficient for **property_areaSemi-Urban**?
+(2) What is the *Cragg-Uhler pseudo-r-squared* value?
+
+**Response 5.1**: 
+(1) 1.98
+(2) .46
+
+```{r, task_5_1}
+# Estimate logistic regression model
+mod_3 <- glm(loan_status ~ applicant_income + property_area, data = loan_work, family = "binomial")
+
+# Summarize the model
+summ(mod_3)
+
+```
+
+## Task 5.2
+
+Estimate a logistic regression model named **mod_4** where observed values of **loan_status** are predicted from observed values of are predicted from observed values of **applicant_income**, **property_area**, and their interaction.
+Apply **summ(mod_4, digits = 5)**.
+
+Print the *odds ratio* regression coefficients using **exp()** and **coef()** on **mod_4**.
+
+Compute the *chi-squared test* on **mod_3** and **mod_4** using **anova()**.
+
+You can copy a part of what you did for **Task 6.1** in your **logistic_regression_assignment.Rmd** script as a basis for the code for this task.
+
+**Question 5.2**: Answer these questions:
+(1) What is the *logit* regression coefficient for **applicant_income:property_areaUrban**?
+(2) What is the *odds ratio* regression coefficient for **applicant_income:property_areaUrban**?
+(3) By how much does **mod_4** reduce the residual deviance relative to **mod_3**?
+
+**Response 5.2**: 
+(1) .00113
+(2) 1.00113375
+(3) 30.88
+
+```{r, task_5_2}
+# Estimate logistic regression model with interaction
+mod_4 <- glm(loan_status ~ applicant_income * property_area, data = loan_work, family = "binomial")
+
+# Summarize the model
+summ(mod_4, digits = 5)
+
+# Print the odds ratio regression coefficients
+exp(coef(mod_4))
+
+# Compute the chi-squared test
+anova(mod_3, mod_4, test = "Chisq")
+
+```
+
+## Task 5.3
+
+Create a new table named **mod_4_results**.
+Pipe **loan_work** to **select()** and select **applicant_income**, **property_area**, and **loan_status**.
+Calculate the *logit*, *odds ratio*, and *probability* fitted values for **mod_4** and save them as **logit**, **odds_ratio**, and **prob**, respectively.
+
+Pipe **mod_4_results** to **arrange()** and order the rows by *descending* **prob**.
+Pipe the result to **print()** and print the first *30* rows.
+
+Create an object named **mod_4_acc**.
+Calculate the number of *true positive*, *true negative*, *false positive*, and *false negative* decisions you would make with **mod_4** if you were to approve a loan for anyone with a probability greater than or equal to **0.50**.
+Print the table.
+
+Use **mod_4_acc** to calculate the *overall*, *positive*, *negative*, *sensitivity*, and *specificity* proportions and print the result.
+
+You can copy a part of what you did for **Task 6.2** in your **logistic_regression_assignment.Rmd** script as a basis for the code for this task.
+
+**Question 5.3**: Answer these questions:
+(1) What is the fitted *probability* value of receiving a loan for the *top 20* candidates?
+(2) How many *true positive* decisions are made using this decision threshold with **mod_4**?
+(3) What is the *specificity* accuracy using this decision threshold with **mod_4**?
+
+**Response 5.3**: 
+(1) 1.00
+(2) 0
+(3) NaN
+
+```{r, task_5_3}
+# Create mod_4_results
+mod_4_results <- loan_work %>%
+  select(applicant_income, property_area, loan_status) %>%
+  mutate(
+    logit = predict(mod_4, type = "link"),
+    odds_ratio = predict(mod_4, type = "response"),
+    prob = predict(mod_4, type = "response")
+  )
+
+# Arrange and print the first 30 rows
+mod_4_results %>%
+  arrange(desc(prob)) %>%
+  print(n = 30)
+
+# Define threshold for loan approval
+threshold <- 0.50
+
+# Create mod_4_acc table
+mod_4_acc <- mod_4_results %>%
+  mutate(
+    predicted = ifelse(prob >= threshold, 1, 0),
+    true_positive = (predicted == 1 & loan_status == 1),
+    true_negative = (predicted == 0 & loan_status == 0),
+    false_positive = (predicted == 1 & loan_status == 0),
+    false_negative = (predicted == 0 & loan_status == 1)
+  ) %>%
+  summarise(
+    true_positive = sum(true_positive),
+    true_negative = sum(true_negative),
+    false_positive = sum(false_positive),
+    false_negative = sum(false_negative)
+  )
+
+# Print the mod_4_acc table
+print(mod_4_acc)
+
+# Calculate overall, positive, negative, sensitivity, and specificity proportions
+overall_accuracy <- (mod_4_acc$true_positive + mod_4_acc$true_negative) / nrow(loan_work)
+positive_accuracy <- mod_4_acc$true_positive / (mod_4_acc$true_positive + mod_4_acc$false_positive)
+negative_accuracy <- mod_4_acc$true_negative / (mod_4_acc$true_negative + mod_4_acc$false_negative)
+sensitivity <- mod_4_acc$true_positive / (mod_4_acc$true_positive + mod_4_acc$false_negative)
+specificity <- mod_4_acc$true_negative / (mod_4_acc$true_negative + mod_4_acc$false_positive)
+
+# Print the proportions
+accuracy_metrics <- tibble(
+  overall_accuracy = overall_accuracy,
+  positive_accuracy = positive_accuracy,
+  negative_accuracy = negative_accuracy,
+  sensitivity = sensitivity,
+  specificity = specificity
+)
+
+print(accuracy_metrics)
+```
+
+## Task 5.4
+
+Create a plot named **mod_4_plot**.
+Use **interact_plot()** to plot **mod_4**.
+Set **pred** to **applicant_income** and **modx** to **property_area**.
+Do *not* plot the data points and set the *line thickness* to **2**.
+Set **x.label** to **Monthly Income**.
+Set **y.label** to **Probability of Loan**.
+Set **legend.main** to **Property Area**.
+Set **colors** to **red**, **blue**, and **green**.
+Change the *x-axis* labels to dollars using **scale_x_continuous()** with **label_dollar()**.
+Display the plot.
+
+Calculate the simple slopes of **mod_4** using **sim_slopes()**.
+Set **pred** to **applicant_income**, **modx** to **property_area**, and **digits** to **5**.
+
+You can copy a part of what you did for **Task 6.3** in your **logistic_regression_assignment.Rmd** script as a basis for the code for this task.
+
+**Question 5.4**: Answer these questions:
+(1) For *monthly income* around `$10,000`, is the *probability of a loan* higher for the *rural* or *urban* property areas?
+(2) What is the *simple slope logit regression coefficient* for the *urban property area*?
+
+**Response 5.4**: 
+(1) WRITE YOUR RESPONSE HERE
+(2) WRITE YOUR RESPONSE HERE
+
+```{r, task_5_4}
+# Create mod_4_plot
+mod_4_plot <- interact_plot(mod_4, pred = applicant_income, modx = property_area, 
+                             plot.points = FALSE, size = 2, x.label = "Monthly Income", 
+                             y.label = "Probability of Loan", legend.main = "Property Area",
+                             colors = c("red", "blue", "green")) +
+  scale_x_continuous(labels = scales::label_dollar())
+
+# Display the plot
+print(mod_4_plot)
+
+# Calculate simple slopes of mod_4
+sim_slopes(mod_4, pred = applicant_income, modx = property_area, digits = 5)
+
+```
+
+# Task 6: Elastic Nets
+
+For this task, you will estimate elastic nets models on training data.
+
+## Task 6.1
+
+Perform these operations.
+
+First, update **loan_work** by executing: 
+`loan_work <- loan_work %>% mutate(loan_status = fct_relevel(loan_status, "Yes", "No"))`.
+Make sure to include notes about the code and write the code across multiple lines to make it more readable.
+This will relevel **loan_status** so that **"Yes"** is the *first* level and **"No"** is the *second* level.
+
+Second, set the random seed of your computer to **1905** using **set.seed()**.
+
+Third, create **loan_split** using **initial_split()**.
+Set the *data* input to **loan_work**, the **prop** input to **0.7**, and the **strata** input to **loan_status**.
+Print **loan_split**.
+
+Fourth, create **loan_train** by applying **training()** to **loan_split**.
+Create **loan_test** by applying **testing()** to **loan_split**.
+Calculate the proportion of each churn value for both **loan_train** and **loan_test** by piping them to **count()** and calculating the proportions with **mutate()**.
+
+You can copy a part of what you did for **Task 4.1** in your **elastic_nets_assignment.Rmd** script as a basis for the code for this task.
+
+**Question 6.1**: Answer these questions:
+(1) How many observations are there in the *training* data?
+(2) How many observations are there in the *testing* data?
+(3) Do the proportion of customers who churned *match* in the *training* and *testing* data?
+
+**Response 6.1**: 
+(1) WRITE YOUR RESPONSE HERE
+(2) WRITE YOUR RESPONSE HERE
+(3) WRITE YOUR RESPONSE HERE
+
+```{r, task_6_1}
+# Relevel loan_status so that "Yes" is the first level and "No" is the second level
+loan_work <- loan_work %>%
+  mutate(loan_status = fct_relevel(loan_status, "Yes", "No"))
+
+# Set random seed
+set.seed(1905)
+
+# Split the data
+loan_split <- initial_split(loan_work, prop = 0.7, strata = loan_status)
+loan_split
+
+# Create train and test sets
+loan_train <- training(loan_split)
+loan_test <- testing(loan_split)
+
+# Calculate proportions of loan_status in train and test sets
+loan_train_prop <- loan_train %>%
+  count(loan_status) %>%
+  mutate(prop = n / sum(n))
+
+loan_test_prop <- loan_test %>%
+  count(loan_status) %>%
+  mutate(prop = n / sum(n))
+
+```
+
+## Task 6.2
+
+Set the random seed of your computer to **1915** using **set.seed()**.
+Then, create **loan_train_folds** with **vfold_cv()**.
+Set **loan_train** as the *data* input, set **v** to **4**, set **repeats** to **5**, and set **strata** to **loan_status**.
+Print **loan_train_folds**.
+
+You can copy a part of what you did for **Task 4.2** in your **elastic_nets_assignment.Rmd** script as a basis for the code for this task.
+
+**Question 6.2**: Answer these questions:
+(1) How many observations are there in the *first* *analysis* set?
+(2) How many observations are there in the *first* *assessment* set?
+
+**Response 6.2**: 
+(1) WRITE YOUR RESPONSE HERE
+(2) WRITE YOUR RESPONSE HERE
+
+```{r, task_6_2}
+# Set random seed
+set.seed(1915)
+
+# Create cross-validation folds
+loan_train_folds <- vfold_cv(loan_train, v = 4, repeats = 5, strata = loan_status)
+loan_train_folds
+
+```
+
+## Task 6.3
+
+First, create a model recipe named **loan_recipe**.
+Call **recipe()** and set the *formula* input to **loan_status ~ .** and the *data* input to **loan_train**.
+Pipe the result to **step_rm()** to remove **loan_id**.
+Pipe the result to **step_normalize()** to standardize any *numeric* predictors.
+Pipe the result to **step_dummy()** to create dummy coded variables for any *nominal* predictors.
+
+Second, pipe **loan_recipe** to **prep()**.
+Pipe the result to **bake()** with **new_data** set to **NULL**.
+Pipe the result to **print()** with **width** set to **Inf**.
+
+You can copy a part of what you did for **Task 5.1** in your **elastic_nets_assignment.Rmd** script as a basis for the code for this task.
+
+**Question 6.3**: Answer these questions:
+(1) How many *variables* are there in the *baked* data?
+(2) What is the *first* value of **applicant_income** in the *baked* data?
+
+**Response 6.3**: 
+(1) WRITE YOUR RESPONSE HERE
+(2) WRITE YOUR RESPONSE HERE
+
+```{r, task_6_3}
+# Create model recipe
+loan_recipe <- recipe(loan_status ~ ., data = loan_train) %>%
+  step_rm(loan_id) %>%
+  step_normalize(all_numeric()) %>%
+  step_dummy(all_nominal())
+
+# Prepare recipe
+loan_recipe_prep <- prep(loan_recipe)
+
+# Bake the recipe
+loan_recipe_bake <- bake(loan_recipe_prep, new_data = NULL)
+
+# Print the baked recipe
+print(loan_recipe_bake, width = Inf)
+
+```
+
+## Task 6.4
+
+Perform these operations.
+
+First, create a metrics function named **class_metrics**.
+Call **metric_set()** and list the following metrics: **sensitivity**, **specificity**, **ppv**, **npv**, **accuracy**, **j_index**, **bal_accuracy**, **mcc**, **f_meas**, **roc_auc**, and **pr_auc**.
+
+First, create a model specification object named **elastic_net_spec**.
+Call **logistic_reg()** and set **penalty** and **mixture** to **tune()**.
+Pipe the result to **set_engine("glmnet")**.
+
+Second, create a grid object named **elastic_net_grid**.
+Pipe **elastic_net_spec** to **extract_parameter_set_dials()**.
+Pipe the result to **grid_regular()** with **levels** set to **10**.
+
+Third, create a workflow object named **elastic_net_wflow**.
+Pipe **workflow()** to **add_model()** and specify **elastic_net_spec** as the input.
+Pipe the result of **add_model()** to **add_recipe()**.
+In **add_recipe()**, specify **loan_recipe** as the input.
+
+Fourth, create an object named **elastic_net_tune**.
+Pipe **elastic_net_wflow** to **tune_grid()**.
+In **tune_grid()**, set **resamples** to **loan_train_folds**, the **grid** to **elastic_net_grid**, and the **metrics** to **class_metrics**.
+
+Fifth, call **autoplot()** and set **elastic_net_tune** as the *first* input and **c("f_meas", "roc_auc")** as the **metric** input.
+Update the theme with **theme()** and move the *legend* to the *top* of the plot.
+
+Sixth, call **collect_metrics()** on **elastic_net_tune**.
+Pipe the result to **print()** with **n** set to **33** and **width** set to **Inf**.
+
+Seventh, call **show_best()**.
+Set **elastic_net_tune** as the *first* input and **"roc_auc"** as the **metric** input.
+
+You can copy a part of what you did for a part of **Task 6.1** and all of **Task 6.3** in your **elastic_nets_assignment.Rmd** script as a basis for the code for this task.
+
+**Question 6.4**: Answer these questions:
+(1) What is the best average **roc_auc** across the training folds?
+(2) What are the the *penalty* and *mixture* tuning parameter values with the best **roc_auc**?
+
+**Response 6.4**: 
+(1) WRITE YOUR RESPONSE HERE
+(2) WRITE YOUR RESPONSE HERE
+
+```{r, task_6_4}
+# Define class_metrics function
+class_metrics <- metric_set(
+  sensitivity,
+  specificity,
+  ppv,
+  npv,
+  accuracy,
+  j_index,
+  bal_accuracy,
+  mcc,
+  f_meas,
+  roc_auc,
+  pr_auc
+)
+
+# Create model specification
+elastic_net_spec <- logistic_reg(penalty = tune(), mixture = tune()) %>%
+  set_engine("glmnet")
+
+# Create grid
+elastic_net_grid <- elastic_net_spec %>%
+  extract_parameter_set_dials() %>%
+  grid_regular(levels = 10)
+
+# Create workflow
+elastic_net_wflow <- workflow() %>%
+  add_model(elastic_net_spec) %>%
+  add_recipe(loan_recipe)
+
+# Tune the model
+elastic_net_tune <- elastic_net_wflow %>%
+  tune_grid(
+    resamples = loan_train_folds,
+    grid = elastic_net_grid,
+    metrics = class_metrics
+  )
+
+# Plot tuning results
+autoplot(elastic_net_tune, metric = c("f_meas", "roc_auc")) +
+  theme(legend.position = "top")
+
+# Collect and print metrics
+collect_metrics(elastic_net_tune) %>%
+  print(n = 33, width = Inf)
+
+# Show best model
+show_best(elastic_net_tune, "roc_auc")
+
+```
+
+## Task 6.5
+
+Perform these operations.
+
+First, create a workflow object named **elastic_net_wflow_final**.
+Pipe **elastic_net_wflow** to **finalize_workflow()**.
+Inside of **finalize_workflow()**, call **select_best()** and set **elastic_net_tune** as the *first* input and **"roc_auc"** as the **metric** input.
+
+Second, create an object named **elastic_net_fit**.
+Pipe **elastic_net_wflow_final** to **fit()** and set **loan_train** as the input.
+
+Second, pipe **elastic_net_fit** to **extract_fit_parsnip()**.
+Pipe the result to **tidy()**.
+Pipe the result to **arrange()** and arrange the rows in *descending* order by **estimate**.
+Pipe the result to **print()** and set **n** to **Inf**.
+
+You can copy a part of what you did for **Task 6.4** in your **elastic_nets_assignment.Rmd** script as a basis for the code for this task.
+
+**Question 6.5**: Answer these questions:
+(1) What is the regression coefficient for **loan_amount**?
+(2) What is the regression coefficient for **married_No**?
+
+**Response 6.5**: 
+(1) WRITE YOUR RESPONSE HERE
+(2) WRITE YOUR RESPONSE HERE
+
+```{r, task_6_5}
+# Create final workflow
+elastic_net_wflow_final <- elastic_net_wflow %>%
+  finalize_workflow(select_best(elastic_net_tune, "roc_auc"))
+
+# Fit the model
+elastic_net_fit <- elastic_net_wflow_final %>%
+  fit(data = loan_train)
+
+# Extract and print model coefficients
+elastic_net_fit %>%
+  extract_fit_parsnip() %>%
+  tidy() %>%
+  arrange(desc(estimate)) %>%
+  print(n = Inf)
+
+```
+
+# Task 7: Random Forests
+
+For this, you will estimate random forest models on training data.
+
+## Task 7.1
+
+Perform these operations.
+
+First, create a model specification object named **rf_spec**.
+Call **rand_forest()** and set **mode** to **"classification"**, **mtry** to **tune()**, **trees** to **500**, and **min_n** to **tune()**.
+Pipe the result to **set_engine("ranger")** and set **importance** to **"impurity"**.
+
+Second, create a grid object named **rf_grid**.
+Call **grid_regular()**.
+Inside of **grid_regular()**, call **mtry(c(2, 6))**, **min_n(c(3, 15))**, and set **levels** to **3**.
+
+Third, create a workflow object named **rf_wflow**.
+Pipe **workflow()** to **add_model()** and specify **rf_spec** as the input.
+Pipe the result of **add_model()** to **add_recipe()**.
+In **add_recipe()**, specify **loan_recipe** as the input.
+
+Fourth, set-up the timer for parallel processing by calling **tic()**.
+Then, create **n_cores** with **availableCores()**.
+Then, call **registerDoFuture()**.
+Then, create **clust_work** by calling **makeClusterPSOCK()** and setting **n_cores** as the *first* input and setting **autoStop** to **TRUE**.
+Then, call **plan(cluster, workers = clust_work)**.
+Then, create an object named **rf_tune**.
+Pipe **rf_wflow** to **tune_grid()**.
+In **tune_grid()**, set **resamples** to **loan_train_folds**, the **grid** to **rf_grid**, and the **metrics** to **class_metrics**.
+Then, call **plan(sequential)**.
+Then, close the timer with **toc()**.
+
+Fifth, call **autoplot()** and set **rf_tune** as the *first* input and **c("f_meas", "roc_auc")** as the **metric** input.
+Update the theme with **theme()** and move the *legend* to the *top* of the plot.
+
+Sixth, call **collect_metrics()** on **rf_tune**.
+Pipe the result to **print()** with **n** set to **33** and **width** to **Inf**.
+
+Seventh, call **show_best()**.
+Set **rf_tune** as the *first* input and **"roc_auc"** as the **metric** input.
+
+You can copy a part of what you did for **Task 7.5** in your **random_forests_assignment.Rmd** script as a basis for the code for this task.
+
+**Question 7.1**: Answer two questions:
+(1) What is the best average **roc_auc** across the training folds?
+(2) What *number of features* (**mtry**) and *minimal number of observations* (**min_n**) are the best based on average **roc_auc**?
+
+**Response 7.1**: 
+(1) WRITE YOUR RESPONSE HERE
+(2) WRITE YOUR RESPONSE HERE
+
+```{r, task_7_1}
+# Step 1: Create a model specification object
+rf_spec <- 
+  rand_forest(
+    mode = "classification",
+    mtry = tune(), # Tune the number of variables to sample as candidates at each split
+    trees = 500,
+    min_n = tune() # Tune the minimum number of observations in the terminal nodes
+  ) %>% 
+  set_engine("ranger", importance = "impurity")
+
+# Step 2: Create a grid object
+rf_grid <- 
+  grid_regular() %>%
+  mtry(c(2, 6)) %>%
+  min_n(c(3, 15)) %>%
+  levels(3)
+
+# Step 3: Create a workflow object
+rf_wflow <- 
+  workflow() %>%
+  add_model(rf_spec) %>%
+  add_recipe(loan_recipe)
+
+# Step 4: Set up parallel processing
+tic()
+n_cores <- availableCores()
+registerDoFuture()
+clust_work <- makeClusterPSOCK(n_cores, autoStop = TRUE)
+plan(cluster, workers = clust_work)
+
+# Step 5: Tune the model
+rf_tune <- 
+  rf_wflow %>%
+  tune_grid(
+    resamples = loan_train_folds,
+    grid = rf_grid,
+    metrics = class_metrics
+  ) %>%
+  plan(sequential)
+
+# Step 6: Plot the tuning results
+autoplot(rf_tune, metric = c("f_meas", "roc_auc")) +
+  theme(legend.position = "top")
+
+# Step 7: Collect and print the tuning metrics
+collect_metrics(rf_tune) %>%
+  print(n = 33, width = Inf)
+
+# Step 8: Show the best model
+show_best(rf_tune, "roc_auc")
+
+# Step 9: Stop parallel processing and print the elapsed time
+plan(sequential)
+toc()
+
+```
+
+## Task 7.2
+
+Perform these operations.
+
+First, create a workflow object named **rf_wflow_final**.
+Pipe **rf_wflow** to **finalize_workflow()**.
+Inside of **finalize_workflow()**, call **select_best()** and set **rf_tune** as the *first* input and **"roc_auc"** as the **metric** input.
+
+Second, create an object named **rf_fit**.
+Pipe **rf_wflow_final** to **fit()** and set **loan_train** as the input.
+
+Second, pipe **rf_fit** to **extract_fit_parsnip()**.
+Pipe the result to **vip()**.
+
+You can copy a part of what you did for **Task 7.6** in your **random_forests_assignment.Rmd** script as a basis for the code for this task.
+
+**Question 7.2**: Answer these questions:
+(1) Which predictor is *first most* important?
+(2) Which prediction is *second most* important?
+
+**Response 7.2**: 
+(1) WRITE YOUR RESPONSE HERE
+(2) WRITE YOUR RESPONSE HERE
+
+```{r, task_7_2}
+# Step 1: Create a final workflow object
+rf_wflow_final <- rf_wflow %>%
+  finalize_workflow(select_best(rf_tune, "roc_auc"))
+
+# Step 2: Fit the final model
+rf_fit <- rf_wflow_final %>%
+  fit(data = loan_train)
+
+# Step 3: Extract variable importance
+rf_fit %>%
+  extract_fit_parsnip() %>%
+  vip()
+
+```
+
+# Task 8: Compare Elastic Net and Random Forest Models
+
+For this task, you will compare the final elastic net and random forest models on testing data.
+
+## Task 8.1
+
+Perform these operations.
+
+First, create a data table object named **elastic_net_pred**.
+Pipe **loan_test** to **select()** and select **loan_status**.
+Pipe the result to **bind_cols()**.
+In **bind_cols()**, call **predict()** and set **elastic_net_fit** as the *model* input, **loan_test** as the **new_data** input, and **"prob"** as the **type** input.
+
+Second, create a data table object named **rf_pred**.
+Pipe **loan_test** to **select()** and select **loan_status**.
+Pipe the result to **bind_cols()**.
+In **bind_cols()**, call **predict()** and set **rf_fit** as the *model* input, **loan_test** as the **new_data** input, and **"prob"** as the **type** input.
+
+Third, call **map_dfr()**.
+Inside of **map_dfr()**, as as first input, create a list with **list()** consisting of **elastic_net = elastic_net_pred** and **random_forest = rf_pred** and .
+Inside of **map_dfr()**, as as second input, call **roc_auc()** with **data** set **.x**, **truth** set to **loan_status**, and the *predicted* values set to **.pred_Yes**.
+Set the **.id** input of **map_dfr()** to **"model"**.
+
+You can copy a part of what you did for **Task 7.1** in your **elastic_nets_assignment.Rmd** script as a basis for the code for this task.
+
+**Question 8.1**: Answer these questions:
+(1) What is the **roc_auc** of the *random forest* model?
+(2) Which model performs better with respect to **roc_auc**?
+
+**Response 8.1**: 
+(1) WRITE YOUR RESPONSE HERE
+(2) WRITE YOUR RESPONSE HERE
+
+```{r, task_8_1}
+# Step 1: Create predictions for elastic net and random forest models
+elastic_net_pred <- loan_test %>%
+  select(loan_status) %>%
+  bind_cols(predict(elastic_net_fit, new_data = bake(loan_recipe, loan_test), type = "prob")) %>%
+  select(loan_status, .pred_Yes)
+
+rf_pred <- loan_test %>%
+  select(loan_status) %>%
+  bind_cols(predict(rf_fit, new_data = bake(loan_recipe, loan_test), type = "prob")) %>%
+  select(loan_status, .pred_Yes)
+
+# Step 2: Calculate ROC AUC for each model
+roc_auc_results <- map_dfr(list(elastic_net = elastic_net_pred, random_forest = rf_pred), 
+                            ~ roc_auc(data = .x, truth = loan_status, .pred_Yes),
+                            .id = "model")
+
+# Step 3: Print ROC AUC results
+print(roc_auc_results)
+```
+
+## Task 8.2
+
+Perform these operations.
+
+First, create a data table named **elastic_net_roc**.
+Call **roc_curve()** and set **elastic_net_pred** as the *data* input, **loan_status** as the **truth** input, and **.pred_Yes** as the *predicted* values.
+
+Second, create a data table named **random_forest_roc**.
+Call **roc_curve()** and set **rf_pred** as the *data* input, **loan_status** as the **truth** input, and **.pred_Yes** as the *predicted* values.
+
+Third, create a plot named **roc_plot**.
+Call **ggplot()**.
+Add a **geom_abline()** layer and set to **linetype** to **2** and **color** to **"gray"**.
+Add a first **geom_path()** layer and set **elastic_net_roc** as the *data* input, map **1 - specificity** to the *x-axis*, **sensitivity** to the *y-axis*, and **"Elastic Net"** to **color**, and set **linewidth** to **1.5**.
+Add a second **geom_path()** layer and set **random_forest_roc** as the *data* input, map **1 - specificity** to the *x-axis*, **sensitivity** to the *y-axis*, and **"Random Forest"** to **color**, set **linewidth** to **1.5**, and set **alpha** to **0.6**.
+Adjust the colors with **scale_color_manual()** and set **values** to **c("Elastice Net" = "black", "Random Forest" = "red")**.
+Adjust the *x*, *y*, and *color* titles with **labs()** by setting them to **"False Positive Rate"**, **"True Positive Rate"**, and **"Model"**.
+Change the theme to **theme_hc()**.
+Move the *legend* to the *bottom* with **theme()**.
+
+View the plot.
+
+You can copy a part of what you did for **Task 7.2** in your **elastic_nets_assignment.Rmd** script as a basis for the code for this task.
+
+**Question 8.2**: Do the *ROC* curves confirm the better performance of one model over the other model?
+
+**Response 8.2**: WRITE YOUR RESPONSE HERE
+
+```{r, task_8_2}
+# Step 1: Calculate ROC curve for elastic net model
+elastic_net_roc <- roc_curve(data = elastic_net_pred, truth = loan_status, .pred_Yes)
+
+# Step 2: Calculate ROC curve for random forest model
+random_forest_roc <- roc_curve(data = rf_pred, truth = loan_status, .pred_Yes)
+
+# Step 3: Create ROC plot
+roc_plot <- ggplot() +
+  geom_abline(linetype = 2, color = "gray") +
+  geom_path(data = elastic_net_roc, aes(x = `1 - specificity`, y = sensitivity, color = "Elastic Net"), size = 1.5) +
+  geom_path(data = random_forest_roc, aes(x = `1 - specificity`, y = sensitivity, color = "Random Forest"), size = 1.5, alpha = 0.6) +
+  scale_color_manual(values = c("Elastic Net" = "black", "Random Forest" = "red")) +
+  labs(x = "False Positive Rate", y = "True Positive Rate", color = "Model") +
+  theme_hc() +
+  theme(legend.position = "bottom")
+
+# View the plot
+print(roc_plot)
+```
+
+# Task 9: Save Objects
+
+For this task, you will save the plots and the working data.
+First, save the working data, **loan_work** as the data file: **loan_work.fst** in the **data** folder of the project directory using **write_fst()**.
+
+Second, save the three plot objects as **png** files in the **plots** folder of the project directory using the combination of **walk()**, **ls()**, **ggsave()**, **here()**, **str_glue()**, **str_remove()**, and **get()**.
+Use a width of *8.1 inches* and a height of *5 inches*.
+
+You can copy a part of what you did for **Task 6** in your **ols_regression_assignment.Rmd** script as a basis for the code for this task.
+
+```{r, task_9}
+# Save the working data as loan_work.fst
+write_fst(loan_work, here::here("data", "loan_work.fst"))
+
+# Save the three plot objects as png files
+walk(ls(pattern = "mod_2_plot|rf_plot|roc_plot"), function(plot_name) {
+  ggsave(
+    filename = str_glue("{here::here('plots', str_remove(plot_name, 'mod_2_plot|rf_plot|roc_plot_'))}.png"),
+    plot = get(plot_name),
+    width = 8.1,
+    height = 5
+  )
+})
+```
+
+# Task 10: Conceptual Questions
+
+For your last task, you will respond to conceptual questions based on the conceptual lectures covering the second four topics.
+
+**Question 10.1**: For what types of outcomes can we use *OLS regression* versus *logistic regression* models?
+
+**Response 10.1**: 
+OLS regression is typically used for continuous outcomes, where the dependent variable is continuous and has a normal distribution. Logistic regression, on the other hand, is used for binary outcomes, where the dependent variable is categorical and has only two levels.
+
+**Question 10.2**: What are the two tuning parameters of an elastic net model?
+
+**Response 10.2**: 
+The two tuning parameters of an elastic net model are "alpha," which controls the mixture of L1 and L2 regularization, and "lambda," which controls the overall strength of the regularization.
+
+**Question 10.3**: What is the difference between the *sensitivity* and *specificity* decision accuracy metrics?  
+
+**Response 10.3**: 
+Sensitivity, also known as the true positive rate, measures the proportion of actual positive cases that are correctly identified by the model. Specificity, on the other hand, measures the proportion of actual negative cases that are correctly identified as negative by the model. In summary, sensitivity focuses on the model's ability to detect positive cases correctly, while specificity focuses on its ability to detect negative cases correctly.
+
+**Question 10.4**: When comparing *OLS regression*, *logistic regression*, *elastic nets*, and *random forests*, which model does the best job of representing *non-linear* relationships between predictors and outcomes?
+
+**Response 10.4**: 
+Random forests typically do the best job of representing non-linear relationships between predictors and outcomes. This is because they are capable of capturing complex interactions and non-linearities in the data through the use of decision trees and ensemble learning.

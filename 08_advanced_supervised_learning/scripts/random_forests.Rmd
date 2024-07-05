@@ -1,0 +1,1212 @@
+---
+title: "Random Forests"
+author: "Goran Kuljanin"
+date: "`r lubridate::now(tzone = 'America/Chicago')`"
+output:
+  html_document:
+    toc: yes
+    toc_depth: 2
+    toc_float: yes
+    theme: yeti
+    highlight: zenburn
+    df_print: paged
+    code_folding: show
+editor_options:
+  chunk_output_type: console
+---
+
+# R Markdown
+
+This is an *R Markdown* script. 
+We will use *R Markdown* to generate a report of our work.
+This allows us to more easily reproduce and update any particular piece of work going forward.     
+
+If you click the dropdown menu next to *Knit*, then you can *Knit* this document to *HTML* (as long as a browser is installed), *Microsoft Word* (as long as it is installed), or *PDF* (if ).
+Knitting produces a reproducible report of our work.
+
+An *R Markdown* file consists of three parts:  
+
+1. a YAML (YAML Ain't Markup Language) report set-up as you see at the top of this script,
+2. words written using the *R Markdown* and other languages (e.g., `LaTeX`) as you see here, and  
+3. code chunks containing program commands.
+
+You can read more about [R Markdown](http://rmarkdown.rstudio.com) by clicking on the link. 
+You can also read a free online textbook: [R Markdown: The Definitive Guide](https://bookdown.org/yihui/rmarkdown/).
+
+# Code Chunks
+
+A code chunk begins and ends with three back ticks. 
+With the opening three back ticks, you write:
+
+1. the type of code you will write (e.g., *r*), 
+2. code chunk name if you wish, and
+3. code chunk options.
+
+Generally, the first code chunk in an *R Markdown* document will specify global settings for what to include in the knitted document.
+Here, we use an *r* code chunk and name it *setup*.
+We specify the *include* code chunk option to *FALSE*.
+In the code chunk, we specify a global option for subsequent code chunks. 
+The *echo = TRUE* global option will print the code written in subsequent code chunks when we render this document.
+Notice, inside of *r* code chunks, the words written after *#* on a given line serve as a note to ourselves on what our code on subsequent lines executes.
+
+```{r, setup, include = FALSE}
+## specify echo setting for all code chunks
+knitr::opts_chunk$set(
+  # show code
+  echo = TRUE,
+  # show messages
+  message = FALSE,
+  # show warnings
+  warning = FALSE,
+  # figure dimensions
+  fig.dim = c(10, 6.2)
+)
+```
+
+# Packages
+
+When we work with *R*, we often use *packages* outside of the base installation.
+Packages enhance or advance the possibilities of what we can do in *R*.
+Before we use a package for the first time, we must download and install it first.
+To install packages, you must download them to your computer.
+To download packages, you can either:
+
+1. type in your *Console* window **install.packages("_desired_package_name_")**, or 
+2. select the **Tools** menu option followed by **Install Packages...**.   
+
+I will demonstrate how to install packages in my video lecture. 
+
+## Activate Packages
+
+Any time we want to use a package outside of the base installation, then we must load it to our current working session.
+We load packages by using the **library(_desired_package_name_)** function. 
+Given the name of this function, I will often refer to packages as libraries.
+
+In this code chunk, we activate the following packages:
+
+1. [here](https://here.r-lib.org);
+2. [tidyverse](https://www.tidyverse.org);
+3. [lubridate](https://lubridate.tidyverse.org);
+4. [skimr](https://docs.ropensci.org/skimr/);
+5. [scales](https://scales.r-lib.org);
+6. [snakecase](https://tazinho.github.io/snakecase/);
+7. [corrr](https://corrr.tidymodels.org);
+8. [ggthemes](https://jrnold.github.io/ggthemes/);
+9. [tidymodels](https://www.tidymodels.org);
+10. [glmnet](https://glmnet.stanford.edu);
+11. [DBI](https://dbi.r-dbi.org);
+12. [RSQLite](https://rsqlite.r-dbi.org);
+13. [ranger](https://cran.r-project.org/web/packages/ranger/ranger.pdf);
+14. [vip](https://koalaverse.github.io/vip/index.html);
+15. [tictoc](https://cran.r-project.org/web/packages/tictoc/tictoc.pdf);
+16. [parallelly](https://parallelly.futureverse.org);
+17. [doFuture](https://dofuture.futureverse.org).
+
+We will use functions from these packages to import, examine, summarize, visualize, and model the data.
+
+```{r, packages}
+## here for project work flow
+library(here)
+
+## tidyverse for data manipulation and plotting;
+## activates multiple packages simultaneously
+library(tidyverse)
+
+## lubridate for dates
+library(lubridate)
+
+## skimr to summarize data
+library(skimr)
+
+## scales for variables scales
+library(scales)
+
+## snakecase for naming conventions
+library(snakecase)
+
+## corrr for correlation matrices
+library(corrr)
+
+## ggthemes for plot themes
+library(ggthemes)
+
+## tidymodels for modeling;
+## activates multiple packages simultaneously
+library(tidymodels)
+
+## glmnet for elastic net models
+library(glmnet)
+
+## DBI for database interaction
+library(DBI)
+
+## RSQLite for SQLite databases
+library(RSQLite)
+
+## ranger for random forests
+library(ranger)
+
+## vip for variable importance
+library(vip)
+
+## tictoc for timing
+library(tictoc)
+
+## parallel for parallel processing
+library(parallelly)
+
+## doFuture for parallel processing
+library(doFuture)
+```
+
+# Database Connection
+
+We connect to the database **miami_housing.sqlite** from our **data** project folder using the **here()**, **dbConnect()**, and **SQLite()** functions.
+This data measures characteristics about Miami real estate.
+
+```{r, connect}
+### import and save data as object
+## use dbConnect() and SQLite() to import the data file
+miami_con <- dbConnect(
+  ## driver
+  SQLite(),
+  ## use here() to locate file in our project directory
+  here(
+    # folder
+    "data", 
+    # file
+    "miami_housing.sqlite"
+  )
+)
+
+### list tables
+## call function
+dbListTables(miami_con)
+
+### view table
+## call connection
+miami_con %>%
+  ## preview table
+  tbl(
+    # table
+    "overview"
+  )
+
+### view table
+## call connection
+miami_con %>%
+  ## preview table
+  tbl(
+    # table
+    "distance"
+  ) 
+```
+
+# Clean Data
+
+We clean and collect the data from the database to create working data tables.
+We perform the following tasks:
+
+1. rename variables to snake case;
+2. update a date variable;
+3. convert numeric variables to factor variables;
+4. recode factor levels.
+
+```{r, clean}
+### export and clean table
+## save
+overview <- miami_con %>%
+  ## preview table
+  tbl(
+    # table
+    "overview"
+  ) %>%
+  ## export
+  collect() %>%
+  ## change variable names
+  rename_with(
+    # function
+    .fn = to_snake_case
+  ) %>% 
+  ## update variable names
+  rename(
+    # new = old
+    parcel_id = parcelno,
+    # new = old
+    airplane_noise = avno_60_plus
+  ) %>%
+  ## update
+  mutate(
+    # month
+    month_sold = month(
+      # column
+      month_sold,
+      # labels
+      label = TRUE
+    ),
+    # convert to factor
+    airplane_noise = as_factor(airplane_noise),
+    # recode levels
+    airplane_noise = fct_recode(
+      # factor
+      airplane_noise,
+      # levels
+      "No" = "0", "Yes" = "1"
+    ),
+    # convert to ordinal factor
+    structure_quality = factor(
+      # factor
+      structure_quality,
+      # ordered
+      ordered = TRUE
+    ),
+    # recode levels
+    structure_quality = fct_recode(
+      # factor
+      structure_quality,
+      # levels
+      "Very Bad" = "1", "Bad" = "2",
+      "Okay" = "3", "Good" = "4",
+      "Very Good" = "5"
+    )
+  )
+
+## confirm changes
+glimpse(overview)
+
+### export and clean table
+## save
+distance <- miami_con %>%
+  ## preview table
+  tbl(
+    # table
+    "distance"
+  ) %>%
+  ## export
+  collect() %>%
+  ## change variable names
+  rename_with(
+    # function
+    .fn = to_snake_case
+  ) %>% 
+  ## update variable names
+  rename(
+    # new = old
+    parcel_id = parcelno,
+    # new = old
+    subcntr_dist = subcntr_di
+  ) 
+
+## confirm changes
+glimpse(distance)
+```
+
+# Join Data
+
+We join two data tables based on their common key.
+We create a sample of the complete data.
+
+```{r, join}
+### join tables
+## save
+house_complete <- overview %>%
+  ## left join
+  left_join(
+    # data
+    distance,
+    # key
+    by = "parcel_id"
+  )
+
+## preview table
+glimpse(house_complete)
+
+### set random seed
+## call function
+set.seed(2015)
+
+### working data
+## save
+house_work <- house_complete %>%
+  ## randomly sample
+  slice_sample(
+    # proportion
+    prop = 0.7
+  )
+
+## preview table
+glimpse(house_work)
+```
+
+# Examine Data
+
+We compute a generic summary of variables.
+We examine the correlations between the numeric variables including the outcome.
+We examine the box plots of the numeric outcome by categorical features.
+
+```{r, examine}
+### overall summary
+## call data
+house_work %>%
+  ## select specific variables
+  select(-parcel_id) %>%
+  ## compute summary statistics
+  skim()
+
+### examine correlations 
+## call data
+house_work %>%
+  ## select variables
+  select(
+    # numeric
+    where(is.numeric),
+    # exclude
+    -parcel_id
+  ) %>%
+  ## correlation matrix
+  correlate() %>%
+  ## arrange values
+  rearrange() %>%
+  ## keep lower triangle
+  shave() %>%
+  ## plot
+  rplot(
+    # print values
+    print_cor = TRUE
+  ) +
+    ## update theme
+    theme(
+      # x-axis labels
+      axis.text.x = element_text(
+        # angle
+        angle = 45,
+        # justification
+        vjust = 0.6
+      )
+    )
+  
+### examine categorical features 
+## call data and mapping
+ggplot(
+  # data
+  house_work,
+  # mapping
+  aes(
+    # factor
+    x = lnd_sqfoot, 
+    # outcome
+    y = sale_prc
+  )
+) +
+  ## points
+  geom_point(
+    # tansparency
+    alpha = 0.3
+  ) +
+  ## smooth
+  geom_smooth(
+    # loess
+    method = "loess",
+    # formula
+    formula = "y ~ x",
+    # no ribbon
+    se = FALSE
+  ) +
+  ## scale x-axis
+  scale_x_continuous(
+    # labels
+    labels = label_number(
+      # big marks
+      big.mark = ","
+    )
+  ) +
+  ## scale y-axis
+  scale_y_continuous(
+    # breaks
+    breaks = seq(0, 3000000, 500000),
+    # labels
+    labels = label_dollar(
+      # scale
+      scale = 0.000001,
+      # suffix
+      suffix = "M"
+    )
+  ) +
+  ## labels
+  labs(
+    # x-axis
+    x = "Land Area (Feet)", 
+    # y-axis
+    y = "Sale Price (Millions)"
+  ) +
+  ## set theme
+  theme_clean() 
+```
+
+# Split Data
+
+We split the data for supervised learning.
+The initial split of the data divides it into training and testing sets.
+We create repeated folds of the training data for training models.
+
+```{r, data_split}
+### set random seed
+## call function
+set.seed(1687)
+
+### create split
+## split data
+house_split <- initial_split(
+  # data
+  house_work,
+  # split proportion
+  prop = 0.7
+)
+
+## examine initial split
+house_split
+
+### extract training data
+## save
+house_train <- training(house_split)
+
+## preview
+house_train
+
+### extract testing data
+## save
+house_test <- testing(house_split)
+
+## preview
+house_test
+
+### set random seed
+## call function
+set.seed(1999)
+
+### repeated cross-folds on training set
+## split training
+house_train_folds <- vfold_cv(
+  # training data
+  house_train,
+  # number of folds
+  v = 3,
+  # repeats
+  repeats = 2
+)
+
+## examine folds
+house_train_folds
+```
+
+# Model Recipe
+
+We create a modeling recipe using the training data.
+We examine the prepared data table.
+
+```{r, mod_rec}
+### create modeling recipe
+## save as object
+house_recipe <- recipe(
+  # identify outcomes
+  sale_prc ~
+    # all other variables
+    .,
+  # data
+  data = house_train
+) %>%
+  ## remove variables
+  step_rm(
+    # list variables
+    parcel_id
+  ) %>%
+  ## normalize predictors
+  step_normalize(
+    # numeric predictors
+    all_numeric_predictors()
+  ) %>%
+  ## dummy variables
+  step_dummy(
+    # nominal predictors
+    all_nominal_predictors()
+  )
+
+### prep and bake recipe
+## call recipe
+house_recipe %>%
+  ## estimate parameters
+  prep() %>%
+  ## apply computations to data
+  bake(
+    # training data
+    new_data = NULL
+  ) %>%
+  ## print wide
+  print(width = Inf)
+```
+
+# Train Models
+
+We estimate models on the training data.
+
+## OLS Regression
+
+We fit an OLS regression model.
+We evaluate its performance with metrics across folds.
+
+```{r, ols_reg}
+### specify model metric to optimize
+## save as object
+reg_metrics <- metric_set(
+  # accuracy
+  mae, rmse, 
+  # consistency
+  rsq, rsq_trad,
+  # accuracy and consistency
+  ccc
+)
+
+### linear model
+## save
+lm_wflow <- workflow() %>%
+  ## add model
+  add_model(
+    # regression specification
+    linear_reg() %>%
+      # engine
+      set_engine("lm")
+  ) %>%
+  ## update recipe
+  add_recipe(
+    # previous recipe
+    house_recipe 
+  )
+
+### estimate model on folds
+## save as object
+lm_fit_folds <-  
+  ## workflow
+  lm_wflow %>%
+  ## fit
+  fit_resamples(
+    # folds
+    resamples = house_train_folds,
+    # metrics
+    metrics = reg_metrics
+  )
+
+### show metrics
+## call function
+collect_metrics(lm_fit_folds)
+
+### fit to complete training data
+## save as object
+lm_fit <- 
+  ## workflow
+  lm_wflow %>%
+  ## fit
+  fit(house_train)
+
+### view coefficients
+## call model object
+lm_fit %>%
+  ## pull fit
+  extract_fit_parsnip() %>%
+  ## coefficients
+  tidy() %>%
+  ## arrange rows
+  arrange(
+    # descending
+    desc(estimate)
+  ) %>%
+  ## print all rows
+  print(n = Inf)
+```
+
+## Elastic Net
+
+We tune an elastic net regression model.
+We evaluate the performance of various hyperparameters with metrics across folds.
+
+```{r, elastic_net}
+#### elastic net
+### model specification
+## save as object
+elastic_net_spec <- 
+  ## regression specification
+  linear_reg(
+    # tune penalty
+    penalty = tune(),
+    # tune mixture
+    mixture = tune()
+  ) %>%
+  ## specify engine
+  set_engine("glmnet") 
+  
+### view a tuning grid
+## call model specification
+elastic_net_grid <- elastic_net_spec %>%
+  ## parameters
+  extract_parameter_set_dials() %>%
+  ## grid
+  grid_regular(levels = 5)
+
+### create initial workflow
+## save as object
+elastic_net_wflow <- workflow() %>%
+  ## add model
+  add_model(elastic_net_spec) %>%
+  ## add recipe
+  add_recipe(
+    # previous recipe
+    house_recipe 
+  )
+
+### estimate models
+## save as object
+elastic_net_tune <- 
+  ## workflow
+  elastic_net_wflow %>%
+  ## tune
+  tune_grid(
+    # folds
+    resamples = house_train_folds,
+    # grid
+    grid = elastic_net_grid,
+    # metrics
+    metrics = reg_metrics
+  )
+
+### plot metrics
+## produce plot
+## produce plot
+autoplot(
+  # results
+  elastic_net_tune,
+  # metrics
+  metric = c("rsq", "ccc", "rmse")
+) +
+  ## move legend
+  theme(legend.position = "top")
+
+### show metrics
+## call function
+collect_metrics(elastic_net_tune) %>%
+  ## print long
+  print(n = 30, width = Inf)
+
+### show best
+## call function
+show_best(
+  # results
+  elastic_net_tune,
+  # metric
+  metric = "ccc"
+)
+
+### create final workflow
+## save as object
+elastic_net_wflow_final <- 
+  ## initial workflow
+  elastic_net_wflow %>%
+  ## finalize workflow
+  finalize_workflow(
+    # hyperparameters
+    select_best(
+      # results
+      elastic_net_tune,
+      # metric
+      metric = "ccc"
+    )
+  )
+
+### fit to complete training data
+## save as object
+elastic_net_fit <- 
+  ## workflow
+  elastic_net_wflow_final %>%
+  ## fit
+  fit(house_train)
+
+### view coefficients
+## call model object
+elastic_net_fit %>%
+  ## pull fit
+  extract_fit_parsnip() %>%
+  ## coefficients
+  tidy() %>%
+  ## arrange rows
+  arrange(
+    # descending
+    desc(estimate)
+  ) %>%
+  ## print all rows
+  print(n = Inf)
+```
+
+## Random Forest
+
+We fit a random forest regression model.
+We evaluate its performance with metrics across folds.
+
+```{r, rf}
+#### random forest
+### model specification
+## save as object
+rf_spec <- 
+  ## rf specification
+  rand_forest(
+    # regression
+    mode = "regression",
+    # selected features
+    mtry = tune(),
+    # number of trees
+    trees = 500,
+    # minimal node size
+    min_n = tune()
+  ) %>%
+  ## specify engine
+  set_engine(
+    # engine
+    "ranger",
+    # variable importance
+    importance = "impurity"
+  )
+
+### view a tuning grid
+## save
+rf_grid <- grid_regular(
+  # number of features
+  mtry(
+    # range
+    c(2, 10)
+  ),
+  # number of units
+  min_n(
+    # range
+    c(5, 30)
+  ),
+  # combinations  
+  levels = 3
+)
+
+### create initial workflow
+## save as object
+rf_wflow <- workflow() %>%
+  ## add model
+  add_model(rf_spec) %>%
+  ## add recipe
+  add_recipe(
+    # previous recipe
+    house_recipe
+  )
+
+### begin timer
+## call function
+tic()
+
+### number of logical cores
+## save
+n_cores <- availableCores()
+
+### register parallel backend
+## call function
+registerDoFuture()
+
+### create compute clusters
+## save
+clust_work <- makeClusterPSOCK(
+  # cores
+  n_cores,
+  # stop cluster
+  autoStop = TRUE
+)
+
+### create parallel plan
+## call function
+plan(cluster, workers = clust_work)
+
+### estimate models
+## save as object
+rf_tune <- 
+  ## workflow
+  rf_wflow %>%
+  ## fit
+  tune_grid(
+    # folds
+    resamples = house_train_folds,
+    # metrics
+    metrics = reg_metrics,
+    # grid
+    grid = rf_grid
+  )
+
+### convert to sequential
+## call function
+plan(sequential)
+
+### end timer
+## call function
+toc()
+
+### plot metrics
+## produce plot
+## produce plot
+autoplot(
+  # results
+  rf_tune,
+  # metrics
+  metric = c("rsq", "ccc", "rmse")
+) +
+  ## move legend
+  theme(legend.position = "top")
+
+### show metrics
+## call function
+collect_metrics(rf_tune) %>%
+  ## print long
+  print(n = Inf, width = Inf)
+
+### show best
+## call function
+show_best(
+  # results
+  rf_tune,
+  # metric
+  metric = "ccc"
+)
+
+### create final workflow
+## save as object
+rf_wflow_final <- 
+  ## initial workflow
+  rf_wflow %>%
+  ## finalize workflow
+  finalize_workflow(
+    # hyperparameters
+    select_best(
+      # results
+      rf_tune,
+      # metric
+      metric = "ccc"
+    )
+  )
+
+### fit to complete training data
+## save as object
+rf_fit <- 
+  ## workflow
+  rf_wflow_final %>%
+  ## fit
+  fit(house_train)
+
+### view coefficients
+## call model object
+rf_fit %>%
+  ## pull fit
+  extract_fit_parsnip() %>%
+  ## prediction importance
+  vip()
+```
+
+# Test Models
+
+We evaluate the models against the testing set.
+We create a plot to show the observed values against the predictions.
+We compute the metrics of the models for the testing set.
+
+```{r, test_models}
+### linear model
+## save
+lm_pred <- predict(
+  # fitted model
+  lm_fit,
+  # test data
+  new_data = house_test
+) %>% 
+  ## rename
+  rename(lm_pred = .pred)
+
+### elastic net
+## save
+elastic_net_pred <- predict(
+  # fitted model
+  elastic_net_fit,
+  # test data
+  new_data = house_test
+) %>% 
+  ## rename
+  rename(elastic_net_pred = .pred)
+
+### random forest
+## save
+rf_pred <- predict(
+  # fitted model
+  rf_fit,
+  # test data
+  new_data = house_test
+) %>% 
+  ## rename
+  rename(rf_pred = .pred)
+
+### observed and predicted values
+## save as object
+house_test_pred <- house_test %>%
+  ## select observed values
+  select(sale_prc) %>%
+  ## bind columns
+  bind_cols(
+    # linear model
+    lm_pred,
+    # elastic net
+    elastic_net_pred,
+    # random forest
+    rf_pred
+  ) 
+
+### compute metrics on test data
+## map
+map(
+    ## columns
+  set_names(
+    ## data
+    house_test_pred %>%
+      ## select columns
+      select(
+        # exclude outcome
+        -sale_prc
+      ) %>%
+      # extract column names
+      names(),  
+  ),
+  # function
+  ~ reg_metrics(
+      # data
+      data = house_test_pred,
+      # observed
+      truth = sale_prc,
+      # predicted
+      estimate = all_of(.x)
+  )
+) %>%
+  ## bind rows
+  list_rbind(
+    # names
+    names_to = "model"
+  ) %>%
+  ## pivot wide
+  pivot_wider(
+    # model
+    id_cols = model,
+    # names
+    names_from = .metric,
+    # values
+    values_from = .estimate
+  )
+
+### make long table for plots
+## save as object
+house_test_pred_long <- house_test_pred %>%
+  ## pivot long for plot
+  pivot_longer(
+    # columns to pivot
+    cols = lm_pred:rf_pred,
+    # names
+    names_to = "model",
+    # values
+    values_to = "pred"
+  ) %>%
+  ## update variable
+  mutate(
+    # convert to factor
+    model = as_factor(model)
+  )
+
+#### create plot
+### observed versus predicted values
+## save as object
+pred_plot <- ggplot(
+  # data
+  house_test_pred_long,
+  # mapping
+  aes(
+    # predicted values
+    x = pred,
+    # observed values
+    y = sale_prc
+  )
+) +
+  ## add points
+  geom_point(
+    # transparency
+    alpha = 0.25
+  ) +
+  ## add one-to-one diagonal line
+  geom_abline(
+    # dashed
+    lty = 1, 
+    # color
+    color = "red", 
+    # thick
+    linewidth = 1
+  ) +
+  ## add facet
+  facet_wrap(
+    # variable
+    vars(model), 
+    # number of rows
+    nrow = 2,
+    # labels
+    labeller = as_labeller(
+      # look-up table
+      set_names(
+        # vector elements
+        c(
+          "Linear Model", "Elastic Net", "Random Forest"
+        ), 
+        # names of elements
+        house_test_pred_long %>%
+          # extract
+          pull(model) %>%
+          # levels
+          levels()
+      )
+    )
+  ) +
+  ## scale x-axis
+  scale_x_continuous(
+    # breaks
+    breaks = seq(0, 3000000, 500000),
+    # format
+    labels = label_dollar(
+      # scale
+      scale = 0.000001,
+      # suffix
+      suffix = "M"
+    )
+  ) +
+  ## scale y-axis
+  scale_y_continuous(
+    # breaks
+    breaks = seq(0, 3000000, 500000),
+    # format
+    labels = label_dollar(
+      # scale
+      scale = 0.000001,
+      # suffix
+      suffix = "M"
+    )
+  ) +
+  ## labels
+  labs(
+    # x-axis
+    x = "Predicted Sale Price (Millions)", 
+    # y-axis
+    y = "Observed Sale Price (Millions)"
+  )
+
+## display plot
+pred_plot
+```
+
+# Create Database
+
+We create a new database.
+Then, we copy over tables from an existing database.
+Then, we add new tables to the new database.
+
+```{r, create_db}
+### create empty database
+## save
+miami_con_update <- dbConnect(
+  # driver
+  SQLite(),
+  # path
+  here(
+    # folder
+    "data",
+    # file
+    "miami_housing_update.sqlite"  
+  )
+)
+
+### list tables
+## call function
+dbListTables(miami_con_update)
+
+### copy database
+## call function
+sqliteCopyDatabase(
+  # current
+  miami_con,
+  # new
+  miami_con_update
+)
+
+### list tables
+## call function
+dbListTables(miami_con_update)
+
+### copy tables to database
+## copy
+copy_to(
+  # database
+  miami_con_update,
+  # table
+  house_complete,
+  # name
+  "complete",
+  # persistent
+  temporary = FALSE,
+  # query optimization
+  analyze = FALSE
+)
+
+### list tables
+## call function
+dbListTables(miami_con_update)
+
+### view table
+## call connection
+miami_con_update %>%
+  ## preview table
+  tbl(
+    # table
+    "complete"
+  )
+
+### disconnect from database
+## call function
+dbDisconnect(miami_con_update)
+
+### disconnect from database
+## call function
+dbDisconnect(miami_con)
+```
+
+# Save Plots
+
+We use the **ggsave()** and **here()** functions to save a plot as an individual file to our **plots** folder in the project directory.
+We save the plot according to the *golden ratio* (i.e., approximately 1.618).
+
+```{r, save_plots}
+### save plot
+## call function
+ggsave(
+  ## file path
+  here(
+    # folder
+    "plots",
+    # file
+    "pred.png"
+  ),
+  ## plot object
+  plot = pred_plot,
+  ## units
+  units = "in",
+  ## width
+  width = 8.1,
+  ## height
+  height = 5
+)
+```
